@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:19
+* @see app/Http/Controllers/TimetableController.php:24
 * @route '/generate-timetable'
 */
 export const generateTimetable = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ generateTimetable.definition = {
 
 /**
 * @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:19
+* @see app/Http/Controllers/TimetableController.php:24
 * @route '/generate-timetable'
 */
 generateTimetable.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ generateTimetable.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:19
+* @see app/Http/Controllers/TimetableController.php:24
 * @route '/generate-timetable'
 */
 generateTimetable.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ generateTimetable.get = (options?: RouteQueryOptions): RouteDefinition<'get'> =>
 
 /**
 * @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:19
+* @see app/Http/Controllers/TimetableController.php:24
 * @route '/generate-timetable'
 */
 generateTimetable.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ generateTimetable.head = (options?: RouteQueryOptions): RouteDefinition<'head'> 
 
 /**
 * @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:19
+* @see app/Http/Controllers/TimetableController.php:24
 * @route '/generate-timetable'
 */
 const generateTimetableForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -55,7 +55,7 @@ const generateTimetableForm = (options?: RouteQueryOptions): RouteFormDefinition
 
 /**
 * @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:19
+* @see app/Http/Controllers/TimetableController.php:24
 * @route '/generate-timetable'
 */
 generateTimetableForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -65,7 +65,7 @@ generateTimetableForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'
 
 /**
 * @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:19
+* @see app/Http/Controllers/TimetableController.php:24
 * @route '/generate-timetable'
 */
 generateTimetableForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -82,7 +82,7 @@ generateTimetable.form = generateTimetableForm
 
 /**
 * @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:266
+* @see app/Http/Controllers/TimetableController.php:490
 * @route '/getAssignment'
 */
 export const getAssignment = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -97,7 +97,7 @@ getAssignment.definition = {
 
 /**
 * @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:266
+* @see app/Http/Controllers/TimetableController.php:490
 * @route '/getAssignment'
 */
 getAssignment.url = (options?: RouteQueryOptions) => {
@@ -106,7 +106,7 @@ getAssignment.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:266
+* @see app/Http/Controllers/TimetableController.php:490
 * @route '/getAssignment'
 */
 getAssignment.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -116,7 +116,7 @@ getAssignment.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:266
+* @see app/Http/Controllers/TimetableController.php:490
 * @route '/getAssignment'
 */
 getAssignment.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -126,7 +126,7 @@ getAssignment.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => (
 
 /**
 * @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:266
+* @see app/Http/Controllers/TimetableController.php:490
 * @route '/getAssignment'
 */
 const getAssignmentForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -136,7 +136,7 @@ const getAssignmentForm = (options?: RouteQueryOptions): RouteFormDefinition<'ge
 
 /**
 * @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:266
+* @see app/Http/Controllers/TimetableController.php:490
 * @route '/getAssignment'
 */
 getAssignmentForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -146,7 +146,7 @@ getAssignmentForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'
 
 /**
 * @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:266
+* @see app/Http/Controllers/TimetableController.php:490
 * @route '/getAssignment'
 */
 getAssignmentForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
