@@ -12,7 +12,7 @@ class Timetable extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['day','start_time','end_time','level'];
+    protected $fillable = ['day', 'start_time', 'end_time', 'level', 'room_id', 'course_id', 'instructor_id'];
 
     public function instructor(): HasOne
 

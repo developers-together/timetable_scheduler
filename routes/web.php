@@ -5,6 +5,8 @@ use Inertia\Inertia;
 use Laravel\Fortify\Features;
 
 use App\Http\Controllers\TestController;
+use App\Http\Controllers\TimetableController;
+
 
 Route::get('/', function () {
     return Inertia::render('welcome', [
@@ -20,4 +22,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 Route::get('/test', [TestController::class, 'index']);
 
-require __DIR__.'/settings.php';
+require __DIR__ . '/settings.php';
+
+
+Route::get('/generate-timetable', [TimetableController::class, 'generateTimetable']);
+
+Route::get('/getAssignment', [TimetableController::class, 'getAssignment']);
