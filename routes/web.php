@@ -28,3 +28,11 @@ require __DIR__ . '/settings.php';
 Route::get('/generate-timetable', [TimetableController::class, 'generateTimetable']);
 
 Route::get('/getAssignment', [TimetableController::class, 'getAssignment']);
+
+Route::get('/timetable', function () {
+    return Inertia::render('timetable');
+});
+
+Route::get('/timetable-test', function () {
+    return Inertia::render('timetable-test');
+});
