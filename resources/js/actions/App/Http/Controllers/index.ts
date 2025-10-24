@@ -1,11 +1,11 @@
-import TestController from './TestController'
 import Settings from './Settings'
 import TimetableController from './TimetableController'
+import DBLoaderController from './DBLoaderController'
 
 const Controllers = {
-    TestController: Object.assign(TestController, TestController),
     Settings: Object.assign(Settings, Settings),
     TimetableController: Object.assign(TimetableController, TimetableController),
+    DBLoaderController: Object.assign(DBLoaderController, DBLoaderController),
 }
 
 export default Controllers

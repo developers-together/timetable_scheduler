@@ -4,30 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+// use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Instructor extends Model
 {
-        protected $table = 'instructors';
-    protected $primaryKey = 'instructor_id';
 
-    public $incrementing = false;
 
-    protected $keyType = 'string';
+    protected $fillable = ['name'];
 
-    public $timestamps = false;
-
-    protected $fillable = ['instructor_id','instructor_name'];
-
-    public function qualifiedCourses()
+    public function roles(): HasMany
     {
-        return $this->belongsToMany(Course::class, 'qualified_courses', 'instructor_id', 'course_id');
+        return $this->HasMany(InstructorRole::class);
     }
 
-
-    public function timetable(): BelongsTo
-
+    public function courses(): BelongsToMany
     {
-        return $this->belongsTo(Timetable::class,'instructor_id','instructor_id');
+        return $this->belongsToMany(Course::class);
     }
 }

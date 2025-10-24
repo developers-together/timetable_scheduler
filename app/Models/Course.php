@@ -4,29 +4,27 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Course extends Model
 {
-    protected $table = 'courses';
-    protected $primaryKey = 'course_id';
 
-    public $incrementing = false;
 
-    protected $keyType = 'string';
+    protected $fillable = ['code', 'name'];
 
-    public $timestamps = false;
-
-    protected $fillable = ['course_id','course_name','credits','course_type'];
-
-    public function qualifiedInstructors()
+    public function components(): HasMany
     {
-        return $this->belongsToMany(Instructor::class, 'qualified_courses', 'course_id', 'instructor_id');
+        return $this->HasMany(CourseComponent::class);
     }
 
-    public function timetable(): BelongsTo
-
+    public function instructors(): BelongsToMany
     {
-        return $this->belongsTo(Timetable::class,'course_id','course_id');
+        return $this->belongsToMany(Instructor::class);
+    }
+
+    public function requiredCourse(): HasOne
+    {
+        return $this->HasOne(RequiredCourse::class);
     }
 }

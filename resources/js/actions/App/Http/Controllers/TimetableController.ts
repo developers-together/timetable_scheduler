@@ -1,75 +1,75 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../wayfinder'
 /**
-* @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:24
-* @route '/generate-timetable'
+* @see \App\Http\Controllers\TimetableController::index
+* @see app/Http/Controllers/TimetableController.php:13
+* @route '/generate'
 */
-export const generateTimetable = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: generateTimetable.url(options),
+export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: index.url(options),
     method: 'get',
 })
 
-generateTimetable.definition = {
+index.definition = {
     methods: ["get","head"],
-    url: '/generate-timetable',
+    url: '/generate',
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:24
-* @route '/generate-timetable'
+* @see \App\Http\Controllers\TimetableController::index
+* @see app/Http/Controllers/TimetableController.php:13
+* @route '/generate'
 */
-generateTimetable.url = (options?: RouteQueryOptions) => {
-    return generateTimetable.definition.url + queryParams(options)
+index.url = (options?: RouteQueryOptions) => {
+    return index.definition.url + queryParams(options)
 }
 
 /**
-* @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:24
-* @route '/generate-timetable'
+* @see \App\Http\Controllers\TimetableController::index
+* @see app/Http/Controllers/TimetableController.php:13
+* @route '/generate'
 */
-generateTimetable.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: generateTimetable.url(options),
+index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: index.url(options),
     method: 'get',
 })
 
 /**
-* @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:24
-* @route '/generate-timetable'
+* @see \App\Http\Controllers\TimetableController::index
+* @see app/Http/Controllers/TimetableController.php:13
+* @route '/generate'
 */
-generateTimetable.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: generateTimetable.url(options),
+index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: index.url(options),
     method: 'head',
 })
 
 /**
-* @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:24
-* @route '/generate-timetable'
+* @see \App\Http\Controllers\TimetableController::index
+* @see app/Http/Controllers/TimetableController.php:13
+* @route '/generate'
 */
-const generateTimetableForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: generateTimetable.url(options),
+const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: index.url(options),
     method: 'get',
 })
 
 /**
-* @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:24
-* @route '/generate-timetable'
+* @see \App\Http\Controllers\TimetableController::index
+* @see app/Http/Controllers/TimetableController.php:13
+* @route '/generate'
 */
-generateTimetableForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: generateTimetable.url(options),
+indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: index.url(options),
     method: 'get',
 })
 
 /**
-* @see \App\Http\Controllers\TimetableController::generateTimetable
-* @see app/Http/Controllers/TimetableController.php:24
-* @route '/generate-timetable'
+* @see \App\Http\Controllers\TimetableController::index
+* @see app/Http/Controllers/TimetableController.php:13
+* @route '/generate'
 */
-generateTimetableForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: generateTimetable.url({
+indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: index.url({
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',
             ...(options?.query ?? options?.mergeQuery ?? {}),
@@ -78,89 +78,8 @@ generateTimetableForm.head = (options?: RouteQueryOptions): RouteFormDefinition<
     method: 'get',
 })
 
-generateTimetable.form = generateTimetableForm
+index.form = indexForm
 
-/**
-* @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:490
-* @route '/getAssignment'
-*/
-export const getAssignment = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: getAssignment.url(options),
-    method: 'get',
-})
-
-getAssignment.definition = {
-    methods: ["get","head"],
-    url: '/getAssignment',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:490
-* @route '/getAssignment'
-*/
-getAssignment.url = (options?: RouteQueryOptions) => {
-    return getAssignment.definition.url + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:490
-* @route '/getAssignment'
-*/
-getAssignment.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: getAssignment.url(options),
-    method: 'get',
-})
-
-/**
-* @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:490
-* @route '/getAssignment'
-*/
-getAssignment.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: getAssignment.url(options),
-    method: 'head',
-})
-
-/**
-* @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:490
-* @route '/getAssignment'
-*/
-const getAssignmentForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: getAssignment.url(options),
-    method: 'get',
-})
-
-/**
-* @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:490
-* @route '/getAssignment'
-*/
-getAssignmentForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: getAssignment.url(options),
-    method: 'get',
-})
-
-/**
-* @see \App\Http\Controllers\TimetableController::getAssignment
-* @see app/Http/Controllers/TimetableController.php:490
-* @route '/getAssignment'
-*/
-getAssignmentForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: getAssignment.url({
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-getAssignment.form = getAssignmentForm
-
-const TimetableController = { generateTimetable, getAssignment }
+const TimetableController = { index }
 
 export default TimetableController
