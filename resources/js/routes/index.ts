@@ -292,7 +292,11 @@ homeForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
 home.form = homeForm
 
 /**
+<<<<<<< Updated upstream
 * @see routes/web.php:21
+=======
+* @see routes/web.php:17
+>>>>>>> Stashed changes
 * @route '/dashboard'
 */
 export const dashboard = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -306,7 +310,11 @@ dashboard.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
+<<<<<<< Updated upstream
 * @see routes/web.php:21
+=======
+* @see routes/web.php:17
+>>>>>>> Stashed changes
 * @route '/dashboard'
 */
 dashboard.url = (options?: RouteQueryOptions) => {
@@ -314,7 +322,11 @@ dashboard.url = (options?: RouteQueryOptions) => {
 }
 
 /**
+<<<<<<< Updated upstream
 * @see routes/web.php:21
+=======
+* @see routes/web.php:17
+>>>>>>> Stashed changes
 * @route '/dashboard'
 */
 dashboard.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -323,7 +335,11 @@ dashboard.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
+<<<<<<< Updated upstream
 * @see routes/web.php:21
+=======
+* @see routes/web.php:17
+>>>>>>> Stashed changes
 * @route '/dashboard'
 */
 dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -332,7 +348,11 @@ dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
+<<<<<<< Updated upstream
 * @see routes/web.php:21
+=======
+* @see routes/web.php:17
+>>>>>>> Stashed changes
 * @route '/dashboard'
 */
 const dashboardForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -341,7 +361,11 @@ const dashboardForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> 
 })
 
 /**
+<<<<<<< Updated upstream
 * @see routes/web.php:21
+=======
+* @see routes/web.php:17
+>>>>>>> Stashed changes
 * @route '/dashboard'
 */
 dashboardForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -350,7 +374,11 @@ dashboardForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> =>
 })
 
 /**
+<<<<<<< Updated upstream
 * @see routes/web.php:21
+=======
+* @see routes/web.php:17
+>>>>>>> Stashed changes
 * @route '/dashboard'
 */
 dashboardForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

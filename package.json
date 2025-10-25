@@ -2,6 +2,7 @@
     "private": true,
     "type": "module",
     "scripts": {
+        "start": "concurrently \"npm:dev\" \"php artisan serve\"",
         "build": "vite build",
         "build:ssr": "vite build && vite build --ssr",
         "dev": "vite",
@@ -48,7 +49,9 @@
         "clsx": "^2.1.1",
         "concurrently": "^9.0.1",
         "globals": "^15.14.0",
+        "html2canvas": "^1.4.1",
         "input-otp": "^1.4.2",
+        "jspdf": "^3.0.3",
         "laravel-vite-plugin": "^2.0",
         "lucide-react": "^0.475.0",
         "react": "^19.2.0",
