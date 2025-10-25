@@ -4,12 +4,31 @@ namespace App\Providers\CSP;
 
 use Illuminate\Support\ServiceProvider;
 use SplQueue;
+use Illuminate\Support\Facades\Log;
 
 
 class ConstraintSolverProvider extends ServiceProvider
 {
 
+    private $domains;
+    private $neighbors;
+
+    private $variables;
+
     public function __construct() {}
+
+    public function solve(array &$domains, array &$neighbors, array &$variables)
+    {
+        $this->domains = &$domains;
+        $this->neighbors = &$neighbors;
+        $this->variables = &$variables;
+
+        $this->ac3($this->domains, $this->neighbors);
+
+        $this->backtrack($this->domains, $this->neighbors);
+
+        return $this->assignments;
+    }
 
     private $assignments = [];
 
@@ -18,46 +37,58 @@ class ConstraintSolverProvider extends ServiceProvider
     {
         return $this->assignments;
     }
-    public function ac3($domains, $neighbors)
+    public function ac3(&$domains, &$neighbors)
     {
-
         $queue = new SplQueue();
 
+        // Add all arcs to queue first
         foreach ($neighbors as $xi => $nlist) {
             foreach ($nlist as $xj) {
                 $queue->enqueue([$xi, $xj]);
             }
+        }
 
-            while (!$queue->isEmpty()) {
-                [$xi, $xj] = $queue->dequeue();
-                if ($this->revise($xi, $xj, $domains)) {
-                    if (empty($domains[$xi])) {
-                        return false;
-                    }
-                    foreach ($neighbors[$xi] as $xk) {
-                        if ($xk != $xj) {
-                            $queue->enqueue([$xk, $xi]);
-                        }
+        // THEN process the entire queue
+        while (!$queue->isEmpty()) {
+            [$xi, $xj] = $queue->dequeue();
+            if ($this->revise($xi, $xj, $domains)) {
+                if (empty($domains[$xi])) {
+                    return false;
+                }
+                foreach ($neighbors[$xi] as $xk) {
+                    if ($xk != $xj) {
+                        $queue->enqueue([$xk, $xi]);
                     }
                 }
             }
         }
+
+        return true;
     }
 
-    private function isconsistent(array $a, array $b)
+    private function isconsistent($xi, $xj, array $a, array $b)
     {
+        $instructorA = $this->variables[$xi]['instructor_id'] ?? null;
+        $instructorB = $this->variables[$xj]['instructor_id'] ?? null;
 
+        // Room conflict
+        if ($a['room_id'] == $b['room_id'] && $a['time_slot_id'] === $b['time_slot_id']) {
+            return false;
+        }
+
+        // Instructor conflict
         if (
-            $a['room_id'] != $b['room_id'] && $a['time_slot_id'] === $b['time_slot_id']
-            || $a['instructor_id'] === $b['instructor_id'] && $a['time_slot_id'] != $b['time_slot_id']
+            !is_null($instructorA) && !is_null($instructorB) &&
+            $instructorA === $instructorB && $a['time_slot_id'] == $b['time_slot_id']
         ) {
             return false;
         }
+
         return true;
     }
 
 
-    private function revise($xi, $xj, $domains)
+    private function revise($xi, $xj, &$domains)
     {
         $revised = false;
         $newDomain = [];
@@ -65,7 +96,7 @@ class ConstraintSolverProvider extends ServiceProvider
         foreach ($domains[$xi] as $i) {
             $hasSupport = false;
             foreach ($domains[$xj] as $j) {
-                if ($this->isconsistent($i, $j)) {
+                if ($this->isconsistent($xi, $xj, $i, $j)) {  // Pass variable indices
                     $hasSupport = true;
                     break;
                 }
@@ -105,10 +136,10 @@ class ConstraintSolverProvider extends ServiceProvider
         return $domains[$var]; // basic version, could implement LCV later
     }
 
-    private function consistentWithAssignment(array $value, array $assignment): bool
+    private function consistentWithAssignment(string $var, array $value, array $assignment): bool
     {
-        foreach ($assignment as $val) {
-            if (!$this->isConsistent($value, $val)) {
+        foreach ($assignment as $assignedVar => $assignedValue) {
+            if (!$this->isconsistent($var, $assignedVar, $value, $assignedValue)) {
                 return false;
             }
         }
@@ -124,7 +155,7 @@ class ConstraintSolverProvider extends ServiceProvider
 
             $newDomain = [];
             foreach ($domains[$neighbor] as $neighborValue) {
-                if ($this->isconsistent($value, $neighborValue)) {
+                if ($this->isconsistent($var, $neighbor, $value, $neighborValue)) {
                     $newDomain[] = $neighborValue;
                 }
             }
@@ -141,6 +172,14 @@ class ConstraintSolverProvider extends ServiceProvider
 
     public function backtrack(array $domains, array $neighbors, array $assignment = []): ?array
     {
+        // DEBUG: Check if any domains are empty before starting
+        foreach ($domains as $var => $domain) {
+            if (empty($domain)) {
+                Log::error("Variable {$var} has empty domain before backtracking starts!");
+                return null;
+            }
+        }
+
         if (count($assignment) === count($domains)) {
             $this->assignments = $assignment;
             return $assignment;
@@ -150,7 +189,7 @@ class ConstraintSolverProvider extends ServiceProvider
         $orderedValues = $this->smallestDomain($var, $domains, $assignment, $neighbors);
 
         foreach ($orderedValues as $value) {
-            if ($this->consistentWithAssignment($value, $assignment)) {
+            if ($this->consistentWithAssignment($var, $value, $assignment)) {
                 $assignment[$var] = $value;
 
                 $domainsCopy = $domains;

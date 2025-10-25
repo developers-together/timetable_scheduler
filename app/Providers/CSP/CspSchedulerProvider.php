@@ -8,7 +8,7 @@ use App\Providers\CSP\VariableManagerProvider as VariableManager;
 use App\Providers\CSP\ConstraintSolverProvider as ConstraintSolver;
 use App\Providers\CSP\EvaluatorProvider as Evaluator;
 use App\Providers\CSP\DatabaseSaverProvider as DatabaseSaver;
-
+use Illuminate\Support\Facades\Log;
 
 class CspSchedulerProvider extends ServiceProvider
 {
@@ -29,21 +29,48 @@ class CspSchedulerProvider extends ServiceProvider
     {
         $variables = $this->vars->getVariables();
 
+        if (!$variables) {
+            throw new \Exception("No valid variables found!");
+        }
+
         $domains = $this->vars->getDomains();
 
-        $neighbors = $this->vars->getNeighbors();
-        $this->dbSaver->resetDB();
-        $this->solver->ac3($domains, $neighbors);
+        if (!$domains) {
+            throw new \Exception("No valid domains found!");
+        }
 
-        $assignment = $this->solver->backtrack($domains, $neighbors);
+        $neighbors = $this->vars->getNeighbors();
+
+        if (!$neighbors) {
+            throw new \Exception("No valid neighbors found!");
+        }
+
+        $this->dbSaver->resetDB();
+        // $this->solver->ac3($domains, $neighbors);
+
+
+        // $assignment = $this->solver->backtrack($domains, $neighbors);
+
+        $assignment = $this->solver->solve($domains, $neighbors, $variables);
+
+
 
         if (!$assignment) {
             throw new \Exception("No valid timetable found!");
         }
 
+        foreach ($assignment as $key => $value) {
+
+            Log::info("Final Assignment: ");
+            Log::info($variables[$key]);
+            Log::info($key . " => " . json_encode($value));
+        }
+
         $score = $this->evaluator->evaluate($assignment);
 
-        $this->dbSaver->saveOnDb($assignment, $score);
+        Log::info("Final Score: " . $score);
+
+        $this->dbSaver->saveOnDb($assignment, $score, $variables);
 
         return [
             'assignment' => $assignment,

@@ -75,9 +75,10 @@ return new class extends Migration
             $table->enum('term', ['fall', 'spring', 'summer']);
             $table->enum('faculty', ['CSIT', 'FOE', 'BAS', 'FIBH', 'Art', 'Pharma', 'ARCH']);
             $table->foreignId('course_id')->constrained('courses')->onDelete('cascade');
-            $table->foreignId('course_component_id')->constrained('course_components')->onDelete('cascade');
+            // $table->foreignId('course_component_id')->constrained('course_components')->onDelete('cascade');
+            $table->enum('course_component_id', ['Lecture', 'Tutorial', 'Lab']);
             $table->enum('slot', ['full', 'first_half', 'second_half']);
-            $table->foreignId('instructor_id')->constrained('instructors')->onDelete('cascade');
+            $table->foreignId('instructor_id')->nullable()->constrained('instructors')->onDelete('cascade');
             $table->foreignId('room_id')->constrained('rooms')->onDelete('cascade');
             $table->foreignId('time_slot_id')->constrained('time_slots')->onDelete('cascade');
             $table->integer('groupNO');

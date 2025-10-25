@@ -24,17 +24,17 @@ class DBLoaderController extends Controller
 
     public function import()
     {
-        Excel::import(new CoursesImport, 'courses.csv');
-        Excel::import(new RoomsImport, filePath: 'rooms.csv');
-        Excel::import(new InstructorsImport, filePath: 'instructors.csv');
+        Excel::import(new CoursesImport, 'courses.xlsx');
+        Excel::import(new RoomsImport, filePath: 'rooms.xlsx');
+        Excel::import(new InstructorsImport, filePath: 'instructors.xlsx');
 
-        Excel::import(new TimeSlotsImport, filePath: 'slots.csv');
+        Excel::import(new TimeSlotsImport, filePath: 'slots.xlsx');
     }
 
     public function importInput()
     {
 
         DB::table('required_courses')->truncate();
-        Excel::import(new RequiredCoursesImport, filePath: 'input.csv');
+        Excel::import(new RequiredCoursesImport, filePath: 'input.xlsx');
     }
 }
