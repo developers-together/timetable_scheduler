@@ -7,6 +7,10 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
+use App\Imports\RequiredCoursesImport;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\DB;
+
 class GenerateInputController extends Controller
 {
     /**
@@ -30,7 +34,18 @@ class GenerateInputController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request) {}
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'input' => 'required|mimes:xlsx'
+        ]);
+
+        $file = $request->file('input');
+
+        Excel::import(new RequiredCoursesImport, $file);
+
+        return back()->with('success', 'Courses imported successfully!');
+    }
 
     /**
      * Display the specified resource.

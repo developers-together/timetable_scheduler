@@ -8,8 +8,6 @@ use App\Imports\RoomsImport;
 use App\Imports\TimeSlotsImport;
 use App\Imports\RequiredCoursesImport;
 
-use App\Database\RequiredCourses;
-
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
 
