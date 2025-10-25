@@ -14,7 +14,7 @@ use App\Http\Controllers\GenerateInputController;
 Route::get('/', [GenerateInputController::class, 'index']);
 
 // If anything hits /timetable-test, push to page 1 so flow is correct.
-Route::redirect('/timetable-test', '/generate');
+// Route::redirect('/timetable-test', '/generate');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
@@ -27,7 +27,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 require __DIR__ . '/settings.php';
 
 
-Route::get('/cspgenerate', [TimetableController::class, 'index']);
+// Route::get('/cspgenerate', action: [TimetableController::class, 'index']);
 
 // Route::get('/generate-timetablefast', [TimetableFastController::class, 'generateTimetable']);
 
@@ -44,4 +44,6 @@ Route::get('/generate', [GenerateInputController::class, 'index']);  // page 1
 
 Route::get('/waiting', fn() => Inertia::render('waiting'));    // page 2
 Route::get('/timetablejson', [TimetableController::class, 'index']); // page 3
-Route::get('/timetable', [TimetableController::class, 'show']);// page 3
+Route::get('/timetable', [TimetableController::class, 'show']); // page 3
+
+Route::get('/input', [GenerateInputController::class, 'store']);// page 3
