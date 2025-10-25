@@ -23,9 +23,18 @@ class RequiredCoursesImport implements OnEachRow
 
         $course = Course::where('code', $courseCode)->first();
 
-        if (! $course) {
+
+        if (!$course) {
             Log::warning("Missing: '{$courseCode}' | DB sample: " . Course::pluck('code')->implode(', '));
         } else {
+
+            $instructor = $row[5] ? $course->instructors()->where('name',  $row[5])->first() : null;
+
+
+            if (!$instructor) {
+
+                Log::warning("Instructor ID '{$row[5]}' not assigned to course '{$courseCode}'");
+            }
 
             $course->requiredCourse()->updateOrCreate(
                 ['course_id' => $course->id],
@@ -33,7 +42,8 @@ class RequiredCoursesImport implements OnEachRow
                     'required_capacity' => $row[1],
                     'level' => $row[2],
                     'faculty' => $row[3],
-                    'term' => $row[4]
+                    'term' => $row[4],
+                    'instructor_id' => is_null($instructor) ? null : $instructor->id,
                 ]
             );
         }

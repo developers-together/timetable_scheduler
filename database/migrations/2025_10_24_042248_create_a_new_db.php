@@ -44,7 +44,7 @@ return new class extends Migration
         Schema::create('rooms', function (Blueprint $table) {
             $table->id();
             $table->string('code');
-            $table->enum('type', ['Classroom', 'ComputerLab', 'Theatre', 'Hall', 'BioLab', 'DrawingStudio', 'PhysicsLab', 'DrawingLab']);
+            $table->enum('type', ['Classroom', 'ComputerLab', 'Theater', 'Hall', 'BioLab', 'DrawingStudio', 'PhysicsLab', 'DrawingLab']);
             $table->integer('capacity');
             $table->timestamps();
         });
@@ -64,7 +64,7 @@ return new class extends Migration
             $table->integer('required_capacity');
             $table->integer('level');
             $table->enum('term', ['fall', 'spring', 'summer']);
-            //$table->foreignId('instructor_id')->constrained('instructors')->onDelete('cascade');
+            $table->foreignId('instructor_id')->nullable()->constrained('instructors')->onDelete('cascade');
             $table->enum('faculty', ['CSIT', 'FOE', 'BAS', 'FIBH', 'Art', 'Pharma', 'ARCH']);
             $table->timestamps();
         });

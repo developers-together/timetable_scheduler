@@ -6,57 +6,95 @@ use Illuminate\Support\ServiceProvider;
 use SplQueue;
 use Illuminate\Support\Facades\Log;
 
-
 class ConstraintSolverProvider extends ServiceProvider
 {
+    private array $domains;
+    private array $neighbors;
+    private array $variables;
+    private array $assignments = [];
 
-    private $domains;
-    private $neighbors;
+    // Statistics
+    private int $backtrackCalls = 0;
+    private int $constraintChecks = 0;
+    private int $domainWipeouts = 0;
 
-    private $variables;
+    // CRITICAL: Safety limits
+    private int $maxBacktrackCalls = 20000;      // More attempts
+    private int $maxConstraintChecks = 20000000;  // 20M checks
+    private int $consecutiveFailures = 100;       // Patient
+    private int $lastFailedVar = -1;
 
-    public function __construct() {}
-
-    public function solve(array &$domains, array &$neighbors, array &$variables)
+    public function solve(array &$domains, array &$neighbors, array &$variables): ?array
     {
+        // CRITICAL: Set limits
+        set_time_limit(180); // 3 minutes
+        ini_set('memory_limit', '1024M'); // 1GB
+
         $this->domains = &$domains;
         $this->neighbors = &$neighbors;
         $this->variables = &$variables;
+        $this->assignments = [];
+        $this->resetStatistics();
 
-        $this->ac3($this->domains, $this->neighbors);
+        Log::info("=== CSP Solver (Optimized) ===");
+        Log::info("Variables: " . count($variables));
+        Log::info("Initial domains: " . array_sum(array_map('count', $domains)));
 
-        $this->backtrack($this->domains, $this->neighbors);
+        // OPTIMIZATION 1: Skip AC3 if problem is small
+        if (count($variables) < 50) {
+            Log::info("Skipping AC3 for small problem");
+        } else {
+            $startTime = microtime(true);
+            if (!$this->ac3($this->domains, $this->neighbors)) {
+                Log::error("AC3 failed - problem unsolvable");
+                return null;
+            }
+            Log::info("AC3: " . round(microtime(true) - $startTime, 2) . "s");
+        }
 
-        return $this->assignments;
+        // OPTIMIZATION 2: Backtracking with aggressive pruning
+        $startTime = microtime(true);
+        $result = $this->backtrack($this->domains, $this->neighbors);
+
+        if ($result === null) {
+            Log::error("No solution found");
+            $this->logStatistics();
+            return null;
+        }
+
+        Log::info("=== Solution Found ===");
+        Log::info("Time: " . round(microtime(true) - $startTime, 2) . "s");
+        $this->logStatistics();
+
+        return $result;
     }
 
-    private $assignments = [];
-
-
-    public function getResults()
-    {
-        return $this->assignments;
-    }
-    public function ac3(&$domains, &$neighbors)
+    /**
+     * OPTIMIZED: AC3 with early termination
+     */
+    public function ac3(array &$domains, array &$neighbors): bool
     {
         $queue = new SplQueue();
 
-        // Add all arcs to queue first
-        foreach ($neighbors as $xi => $nlist) {
-            foreach ($nlist as $xj) {
+        foreach ($neighbors as $xi => $neighborList) {
+            foreach ($neighborList as $xj) {
                 $queue->enqueue([$xi, $xj]);
             }
         }
 
-        // THEN process the entire queue
-        while (!$queue->isEmpty()) {
+        $iterations = 0;
+        $maxIterations = 50000; // Safety limit
+
+        while (!$queue->isEmpty() && $iterations++ < $maxIterations) {
             [$xi, $xj] = $queue->dequeue();
+
             if ($this->revise($xi, $xj, $domains)) {
                 if (empty($domains[$xi])) {
                     return false;
                 }
+
                 foreach ($neighbors[$xi] as $xk) {
-                    if ($xk != $xj) {
+                    if ($xk !== $xj) {
                         $queue->enqueue([$xk, $xi]);
                     }
                 }
@@ -66,44 +104,23 @@ class ConstraintSolverProvider extends ServiceProvider
         return true;
     }
 
-    private function isconsistent($xi, $xj, array $a, array $b)
-    {
-        $instructorA = $this->variables[$xi]['instructor_id'] ?? null;
-        $instructorB = $this->variables[$xj]['instructor_id'] ?? null;
-
-        // Room conflict
-        if ($a['room_id'] == $b['room_id'] && $a['time_slot_id'] === $b['time_slot_id']) {
-            return false;
-        }
-
-        // Instructor conflict
-        if (
-            !is_null($instructorA) && !is_null($instructorB) &&
-            $instructorA === $instructorB && $a['time_slot_id'] == $b['time_slot_id']
-        ) {
-            return false;
-        }
-
-        return true;
-    }
-
-
-    private function revise($xi, $xj, &$domains)
+    private function revise(int $xi, int $xj, array &$domains): bool
     {
         $revised = false;
         $newDomain = [];
 
-        foreach ($domains[$xi] as $i) {
+        foreach ($domains[$xi] as $valueI) {
             $hasSupport = false;
-            foreach ($domains[$xj] as $j) {
-                if ($this->isconsistent($xi, $xj, $i, $j)) {  // Pass variable indices
+
+            foreach ($domains[$xj] as $valueJ) {
+                if ($this->isConsistent($xi, $xj, $valueI, $valueJ)) {
                     $hasSupport = true;
-                    break;
+                    break; // OPTIMIZATION: Stop at first support
                 }
             }
 
             if ($hasSupport) {
-                $newDomain[] = $i;
+                $newDomain[] = $valueI;
             } else {
                 $revised = true;
             }
@@ -113,91 +130,139 @@ class ConstraintSolverProvider extends ServiceProvider
         return $revised;
     }
 
-    private function bestVariable(array $domains, array $assignments, array $neighbors)
+    /**
+     * FULLY OPTIMIZED: Constraint checking with early exits
+     */
+    private function isConsistent(int $xi, int $xj, array $valueI, array $valueJ): bool
     {
-        $minsize = PHP_INT_MAX;
-        $best = null;
+        // $this->constraintChecks++;
 
-        foreach ($domains as $var => $domain) {
-            if (isset($assignments[$var])) {
-                continue;
-            }
-            if (count($domain) < $minsize) {
-                $minsize = count($domain);
-                $best = $var;
+        // OPTIMIZATION: Check limit every 10000 checks
+        if (
+            $this->constraintChecks % 10000 === 0 &&
+            $this->constraintChecks > $this->maxConstraintChecks
+        ) {
+            throw new \RuntimeException("Too many constraint checks - over-constrained");
+        }
+
+        // OPTIMIZATION 1: Early exit if same variable
+        if ($xi === $xj) {
+            return true;
+        }
+
+        // OPTIMIZATION 2: Extract once
+        $timeI = $valueI['time_slot_id'];
+        $timeJ = $valueJ['time_slot_id'];
+
+        // OPTIMIZATION 3: Different times = no conflict
+        if ($timeI !== $timeJ) {
+            return true;
+        }
+
+        // Same time - check room conflict
+        $roomI = $valueI['room_id'];
+        $roomJ = $valueJ['room_id'];
+
+        if ($roomI === $roomJ) {
+            // OPTIMIZATION 4: Inline slot overlap check
+            $slotI = $valueI['slot'];
+            $slotJ = $valueJ['slot'];
+
+            if ($slotI === 'full' || $slotJ === 'full' || $slotI === $slotJ) {
+                return false; // Room conflict
             }
         }
 
-        return $best;
-    }
+        // Check instructor conflict
+        $instructorI = $this->variables[$xi]['instructor_id'] ?? null;
+        $instructorJ = $this->variables[$xj]['instructor_id'] ?? null;
 
-    private function smallestDomain(string $var, array $domains, array $assignment, array $neighbors): array
-    {
-        return $domains[$var]; // basic version, could implement LCV later
-    }
+        if ($instructorI !== null && $instructorJ !== null && $instructorI === $instructorJ) {
+            $slotI = $valueI['slot'];
+            $slotJ = $valueJ['slot'];
 
-    private function consistentWithAssignment(string $var, array $value, array $assignment): bool
-    {
-        foreach ($assignment as $assignedVar => $assignedValue) {
-            if (!$this->isconsistent($var, $assignedVar, $value, $assignedValue)) {
-                return false;
+            if ($slotI === 'full' || $slotJ === 'full' || $slotI === $slotJ) {
+                return false; // Instructor conflict
             }
         }
+
         return true;
     }
 
-    private function forwardCheck(string $var, array $value, array &$domains, array $neighbors, array $assignment): bool
-    {
-        foreach ($neighbors[$var] as $neighbor) {
-            if (isset($assignment[$neighbor])) {
-                continue;
-            }
-
-            $newDomain = [];
-            foreach ($domains[$neighbor] as $neighborValue) {
-                if ($this->isconsistent($var, $neighbor, $value, $neighborValue)) {
-                    $newDomain[] = $neighborValue;
-                }
-            }
-
-            if (empty($newDomain)) {
-                return false;
-            }
-
-            $domains[$neighbor] = $newDomain;
-        }
-
-        return true;
-    }
-
+    /**
+     * OPTIMIZED: Backtracking with loop detection
+     */
     public function backtrack(array $domains, array $neighbors, array $assignment = []): ?array
     {
-        // DEBUG: Check if any domains are empty before starting
-        foreach ($domains as $var => $domain) {
-            if (empty($domain)) {
-                Log::error("Variable {$var} has empty domain before backtracking starts!");
-                return null;
-            }
+        $this->backtrackCalls++;
+
+        // CRITICAL: Safety checks
+        if ($this->backtrackCalls >= $this->maxBacktrackCalls) {
+            Log::error("Max backtrack calls ({$this->maxBacktrackCalls}) exceeded");
+            return null;
         }
 
+        // Progress logging (every 100 calls)
+        if ($this->backtrackCalls % 100 === 0) {
+            $progress = count($assignment) . "/" . count($domains);
+            Log::info("Backtrack #{$this->backtrackCalls}: {$progress} assigned");
+        }
+
+        // Terminal condition
         if (count($assignment) === count($domains)) {
             $this->assignments = $assignment;
             return $assignment;
         }
 
-        $var = $this->bestVariable($domains, $assignment, $neighbors);
-        $orderedValues = $this->smallestDomain($var, $domains, $assignment, $neighbors);
+        // OPTIMIZATION: Simple MRV (no degree heuristic for speed)
+        $var = $this->selectUnassignedVariable($domains, $assignment);
 
+        if ($var === null) {
+            return null;
+        }
+
+        $orderedValues = $domains[$var];
+
+        if (empty($orderedValues)) {
+            $this->domainWipeouts++;
+
+            // CRITICAL: Detect infinite loops
+            if ($var === $this->lastFailedVar) {
+                $this->consecutiveFailures++;
+
+                if ($this->consecutiveFailures > 30) {
+                    Log::error("Variable {$var} failed 30+ times - aborting");
+                    $this->diagnoseVariable($var, $assignment);
+                    return null;
+                }
+            } else {
+                $this->consecutiveFailures = 1;
+                $this->lastFailedVar = $var;
+            }
+
+            return null;
+        }
+
+        // Reset on successful different variable
+        if ($var !== $this->lastFailedVar) {
+            $this->consecutiveFailures = 0;
+        }
+
+        // Try each value
         foreach ($orderedValues as $value) {
-            if ($this->consistentWithAssignment($var, $value, $assignment)) {
+            if ($this->isConsistentWithAssignment($var, $value, $assignment)) {
                 $assignment[$var] = $value;
 
+                // OPTIMIZATION: Forward check with early termination
                 $domainsCopy = $domains;
                 if ($this->forwardCheck($var, $value, $domainsCopy, $neighbors, $assignment)) {
                     $result = $this->backtrack($domainsCopy, $neighbors, $assignment);
+
                     if ($result !== null) {
                         return $result;
                     }
+                } else {
+                    $this->domainWipeouts++;
                 }
 
                 unset($assignment[$var]);
@@ -206,19 +271,101 @@ class ConstraintSolverProvider extends ServiceProvider
 
         return null;
     }
+
     /**
-     * Register services.
+     * OPTIMIZED: Simple MRV (no tie-breaking for speed)
      */
-    public function register(): void
+    private function selectUnassignedVariable(array $domains, array $assignment): ?int
     {
-        //
+        $minSize = PHP_INT_MAX;
+        $selectedVar = null;
+
+        foreach ($domains as $var => $domain) {
+            if (isset($assignment[$var])) {
+                continue;
+            }
+
+            $domainSize = count($domain);
+
+            if ($domainSize < $minSize) {
+                $minSize = $domainSize;
+                $selectedVar = $var;
+            }
+        }
+
+        return $selectedVar;
+    }
+
+    private function isConsistentWithAssignment(int $var, array $value, array $assignment): bool
+    {
+        foreach ($assignment as $assignedVar => $assignedValue) {
+            if (!$this->isConsistent($var, $assignedVar, $value, $assignedValue)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
-     * Bootstrap services.
+     * OPTIMIZED: Forward check with early termination
      */
-    public function boot(): void
+    private function forwardCheck(int $var, array $value, array &$domains, array $neighbors, array $assignment): bool
     {
-        //
+        foreach ($neighbors[$var] as $neighbor) {
+            if (isset($assignment[$neighbor])) {
+                continue;
+            }
+
+            $newDomain = [];
+            foreach ($domains[$neighbor] as $neighborValue) {
+                if ($this->isConsistent($var, $neighbor, $value, $neighborValue)) {
+                    $newDomain[] = $neighborValue;
+                }
+            }
+
+            if (empty($newDomain)) {
+                return false; // Early termination
+            }
+
+            $domains[$neighbor] = $newDomain;
+        }
+
+        return true;
     }
+
+    private function diagnoseVariable(int $var, array $assignment): void
+    {
+        $varInfo = $this->variables[$var];
+        Log::error("=== PROBLEM VARIABLE {$var} ===");
+        Log::error("Course: {$varInfo['course_name']}");
+        Log::error("Type: {$varInfo['type']}");
+        Log::error("Instructor: {$varInfo['instructor_id']}");
+        Log::error("Progress: " . count($assignment) . "/" . count($this->domains));
+    }
+
+    private function resetStatistics(): void
+    {
+        $this->backtrackCalls = 0;
+        $this->constraintChecks = 0;
+        $this->domainWipeouts = 0;
+        $this->consecutiveFailures = 0;
+        $this->lastFailedVar = -1;
+    }
+
+    private function logStatistics(): void
+    {
+        Log::info("=== Statistics ===");
+        Log::info("Backtracks: {$this->backtrackCalls}");
+        Log::info("Checks: {$this->constraintChecks}");
+        Log::info("Wipeouts: {$this->domainWipeouts}");
+    }
+
+    public function getResults(): array
+    {
+        return $this->assignments;
+    }
+
+    public function register(): void {}
+    public function boot(): void {}
+    public function __construct() {}
 }

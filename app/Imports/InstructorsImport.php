@@ -39,7 +39,7 @@ class InstructorsImport implements OnEachRow
                 $instructor->courses()->syncWithoutDetaching([$course->id]);
             } else {
                 // Optional: Log or count skipped courses
-                \Log::warning("Skipped missing course: {$courseCode}");
+                Log::warning("Skipped missing course: {$courseCode}");
                 continue;
             }
         }
