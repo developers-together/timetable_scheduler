@@ -44,7 +44,7 @@ class GenerateInputController extends Controller
 
         Excel::import(new RequiredCoursesImport, $file);
 
-        return back()->with('success', 'Courses imported successfully!');
+        return Inertia::render('waiting');
     }
 
     /**
