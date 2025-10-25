@@ -10,9 +10,7 @@ use App\Models\RequiredCourse;
 
 class DatabaseSaverProvider extends ServiceProvider
 {
-    /**
-     * Save the schedule assignment to database (with slot support)
-     */
+
     public function saveOnDb(array $assignment, int $score, array $variables): void
     {
         Log::info("Saving schedule to database with slot information...");
@@ -31,7 +29,6 @@ class DatabaseSaverProvider extends ServiceProvider
             foreach ($assignment as $varIndex => $assignedValue) {
                 $variable = $variables[$varIndex];
 
-                // Fetch required course metadata
                 $reqCourse = RequiredCourse::where('course_id', $variable['course_id'])->first();
 
                 if (!$reqCourse) {
@@ -40,16 +37,13 @@ class DatabaseSaverProvider extends ServiceProvider
                     continue;
                 }
 
-                // Extract slot from assigned value
                 $slot = $assignedValue['slot'] ?? 'full';
 
-                // Validate slot value
                 if (!in_array($slot, ['full', 'first_half', 'second_half'])) {
                     Log::warning("Invalid slot value '{$slot}' for variable {$varIndex}, defaulting to 'full'");
                     $slot = 'full';
                 }
 
-                // Create schedule entry
                 try {
                     Schedule::create([
                         'level' => $reqCourse->level,
@@ -94,9 +88,7 @@ class DatabaseSaverProvider extends ServiceProvider
         }
     }
 
-    /**
-     * Reset/clear all schedules from database
-     */
+
     public function resetDB(): void
     {
         try {
@@ -109,9 +101,6 @@ class DatabaseSaverProvider extends ServiceProvider
         }
     }
 
-    /**
-     * Validate database state before saving
-     */
     public function validateDatabase(): array
     {
         $validation = [
@@ -119,7 +108,6 @@ class DatabaseSaverProvider extends ServiceProvider
             'errors' => [],
         ];
 
-        // Check if schedules table exists
         try {
             DB::table('schedules')->limit(1)->get();
         } catch (\Exception $e) {
@@ -127,7 +115,6 @@ class DatabaseSaverProvider extends ServiceProvider
             $validation['errors'][] = "Schedules table does not exist or is inaccessible";
         }
 
-        // Check for required courses
         $reqCourseCount = RequiredCourse::count();
         if ($reqCourseCount === 0) {
             $validation['valid'] = false;
@@ -137,9 +124,7 @@ class DatabaseSaverProvider extends ServiceProvider
         return $validation;
     }
 
-    /**
-     * Get slot usage statistics from saved schedule
-     */
+
     public function getSlotUsageStats(): array
     {
         try {
@@ -166,7 +151,7 @@ class DatabaseSaverProvider extends ServiceProvider
         $conflicts = [];
 
         try {
-            // Find room conflicts (same room, same time, overlapping slots)
+
             $roomConflicts = DB::table('schedules as s1')
                 ->join('schedules as s2', function ($join) {
                     $join->on('s1.room_id', '=', 's2.room_id')
@@ -174,10 +159,9 @@ class DatabaseSaverProvider extends ServiceProvider
                         ->on('s1.id', '<', 's2.id');
                 })
                 ->where(function ($query) {
-                    // Full slots always conflict
+
                     $query->where('s1.slot', '=', 'full')
                         ->orWhere('s2.slot', '=', 'full')
-                        // Same half-slot conflicts
                         ->orWhereRaw('s1.slot = s2.slot');
                 })
                 ->select(
@@ -195,7 +179,6 @@ class DatabaseSaverProvider extends ServiceProvider
                 Log::error("Found " . count($conflicts['room']) . " room conflicts in saved schedule!");
             }
 
-            // Find instructor conflicts (same instructor, same time, overlapping slots)
             $instructorConflicts = DB::table('schedules as s1')
                 ->join('schedules as s2', function ($join) {
                     $join->on('s1.instructor_id', '=', 's2.instructor_id')

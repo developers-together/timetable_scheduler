@@ -13,12 +13,10 @@ class ConstraintSolverProvider extends ServiceProvider
     private array $variables;
     private array $assignments = [];
 
-    // Statistics
     private int $backtrackCalls = 0;
     private int $constraintChecks = 0;
     private int $domainWipeouts = 0;
 
-    // CRITICAL: Safety limits
     private int $maxBacktrackCalls = 20000;      // More attempts
     private int $maxConstraintChecks = 20000000;  // 20M checks
     private int $consecutiveFailures = 100;       // Patient
@@ -26,7 +24,6 @@ class ConstraintSolverProvider extends ServiceProvider
 
     public function solve(array &$domains, array &$neighbors, array &$variables): ?array
     {
-        // CRITICAL: Set limits
         set_time_limit(180); // 3 minutes
         ini_set('memory_limit', '1024M'); // 1GB
 
@@ -40,7 +37,6 @@ class ConstraintSolverProvider extends ServiceProvider
         Log::info("Variables: " . count($variables));
         Log::info("Initial domains: " . array_sum(array_map('count', $domains)));
 
-        // OPTIMIZATION 1: Skip AC3 if problem is small
         if (count($variables) < 50) {
             Log::info("Skipping AC3 for small problem");
         } else {
@@ -52,7 +48,6 @@ class ConstraintSolverProvider extends ServiceProvider
             Log::info("AC3: " . round(microtime(true) - $startTime, 2) . "s");
         }
 
-        // OPTIMIZATION 2: Backtracking with aggressive pruning
         $startTime = microtime(true);
         $result = $this->backtrack($this->domains, $this->neighbors);
 
@@ -69,9 +64,6 @@ class ConstraintSolverProvider extends ServiceProvider
         return $result;
     }
 
-    /**
-     * OPTIMIZED: AC3 with early termination
-     */
     public function ac3(array &$domains, array &$neighbors): bool
     {
         $queue = new SplQueue();
@@ -83,7 +75,7 @@ class ConstraintSolverProvider extends ServiceProvider
         }
 
         $iterations = 0;
-        $maxIterations = 50000; // Safety limit
+        $maxIterations = 50000;
 
         while (!$queue->isEmpty() && $iterations++ < $maxIterations) {
             [$xi, $xj] = $queue->dequeue();
@@ -115,7 +107,7 @@ class ConstraintSolverProvider extends ServiceProvider
             foreach ($domains[$xj] as $valueJ) {
                 if ($this->isConsistent($xi, $xj, $valueI, $valueJ)) {
                     $hasSupport = true;
-                    break; // OPTIMIZATION: Stop at first support
+                    break;
                 }
             }
 
@@ -130,14 +122,9 @@ class ConstraintSolverProvider extends ServiceProvider
         return $revised;
     }
 
-    /**
-     * FULLY OPTIMIZED: Constraint checking with early exits
-     */
     private function isConsistent(int $xi, int $xj, array $valueI, array $valueJ): bool
     {
-        // $this->constraintChecks++;
 
-        // OPTIMIZATION: Check limit every 10000 checks
         if (
             $this->constraintChecks % 10000 === 0 &&
             $this->constraintChecks > $this->maxConstraintChecks
@@ -145,35 +132,29 @@ class ConstraintSolverProvider extends ServiceProvider
             throw new \RuntimeException("Too many constraint checks - over-constrained");
         }
 
-        // OPTIMIZATION 1: Early exit if same variable
         if ($xi === $xj) {
             return true;
         }
 
-        // OPTIMIZATION 2: Extract once
         $timeI = $valueI['time_slot_id'];
         $timeJ = $valueJ['time_slot_id'];
 
-        // OPTIMIZATION 3: Different times = no conflict
         if ($timeI !== $timeJ) {
             return true;
         }
 
-        // Same time - check room conflict
         $roomI = $valueI['room_id'];
         $roomJ = $valueJ['room_id'];
 
         if ($roomI === $roomJ) {
-            // OPTIMIZATION 4: Inline slot overlap check
             $slotI = $valueI['slot'];
             $slotJ = $valueJ['slot'];
 
             if ($slotI === 'full' || $slotJ === 'full' || $slotI === $slotJ) {
-                return false; // Room conflict
+                return false;
             }
         }
 
-        // Check instructor conflict
         $instructorI = $this->variables[$xi]['instructor_id'] ?? null;
         $instructorJ = $this->variables[$xj]['instructor_id'] ?? null;
 
@@ -182,39 +163,33 @@ class ConstraintSolverProvider extends ServiceProvider
             $slotJ = $valueJ['slot'];
 
             if ($slotI === 'full' || $slotJ === 'full' || $slotI === $slotJ) {
-                return false; // Instructor conflict
+                return false;
             }
         }
 
         return true;
     }
 
-    /**
-     * OPTIMIZED: Backtracking with loop detection
-     */
+
     public function backtrack(array $domains, array $neighbors, array $assignment = []): ?array
     {
         $this->backtrackCalls++;
 
-        // CRITICAL: Safety checks
         if ($this->backtrackCalls >= $this->maxBacktrackCalls) {
             Log::error("Max backtrack calls ({$this->maxBacktrackCalls}) exceeded");
             return null;
         }
 
-        // Progress logging (every 100 calls)
         if ($this->backtrackCalls % 100 === 0) {
             $progress = count($assignment) . "/" . count($domains);
             Log::info("Backtrack #{$this->backtrackCalls}: {$progress} assigned");
         }
 
-        // Terminal condition
         if (count($assignment) === count($domains)) {
             $this->assignments = $assignment;
             return $assignment;
         }
 
-        // OPTIMIZATION: Simple MRV (no degree heuristic for speed)
         $var = $this->selectUnassignedVariable($domains, $assignment);
 
         if ($var === null) {
@@ -226,7 +201,6 @@ class ConstraintSolverProvider extends ServiceProvider
         if (empty($orderedValues)) {
             $this->domainWipeouts++;
 
-            // CRITICAL: Detect infinite loops
             if ($var === $this->lastFailedVar) {
                 $this->consecutiveFailures++;
 
@@ -243,17 +217,14 @@ class ConstraintSolverProvider extends ServiceProvider
             return null;
         }
 
-        // Reset on successful different variable
         if ($var !== $this->lastFailedVar) {
             $this->consecutiveFailures = 0;
         }
 
-        // Try each value
         foreach ($orderedValues as $value) {
             if ($this->isConsistentWithAssignment($var, $value, $assignment)) {
                 $assignment[$var] = $value;
 
-                // OPTIMIZATION: Forward check with early termination
                 $domainsCopy = $domains;
                 if ($this->forwardCheck($var, $value, $domainsCopy, $neighbors, $assignment)) {
                     $result = $this->backtrack($domainsCopy, $neighbors, $assignment);
@@ -272,9 +243,6 @@ class ConstraintSolverProvider extends ServiceProvider
         return null;
     }
 
-    /**
-     * OPTIMIZED: Simple MRV (no tie-breaking for speed)
-     */
     private function selectUnassignedVariable(array $domains, array $assignment): ?int
     {
         $minSize = PHP_INT_MAX;
@@ -305,10 +273,6 @@ class ConstraintSolverProvider extends ServiceProvider
         }
         return true;
     }
-
-    /**
-     * OPTIMIZED: Forward check with early termination
-     */
     private function forwardCheck(int $var, array $value, array &$domains, array $neighbors, array $assignment): bool
     {
         foreach ($neighbors[$var] as $neighbor) {
@@ -324,7 +288,7 @@ class ConstraintSolverProvider extends ServiceProvider
             }
 
             if (empty($newDomain)) {
-                return false; // Early termination
+                return false;
             }
 
             $domains[$neighbor] = $newDomain;

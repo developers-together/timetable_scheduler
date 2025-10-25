@@ -11,13 +11,9 @@ class EvaluatorProvider extends ServiceProvider
     private const PREFERRED_START = '10:45:00';
     private const PREFERRED_END = '14:00:00';
     private const GOOD_TIME_BONUS = 20;
-    private const BAD_TIME_PENALTY = -10;
+    private const BAD_TIME_PENALTY = 0;
     private const HALF_SLOT_EFFICIENCY_BONUS = 5;  // Bonus for using half-slots efficiently
 
-    /**
-     * Evaluate the quality of a schedule assignment (with slot awareness)
-     * Higher score = better schedule
-     */
     public function evaluate(array $assignment, array $variables): int
     {
         Log::info("=== Evaluating Schedule Quality (with Slot Support) ===");
@@ -28,19 +24,15 @@ class EvaluatorProvider extends ServiceProvider
             'time_preference' => 0,
             'instructor_balance' => 0,
             'room_utilization' => 0,
-            'slot_efficiency' => 0,  // NEW: reward efficient half-slot usage
+            'slot_efficiency' => 0,
         ];
 
-        // Metric 1: Time slot preferences
         $scores['time_preference'] = $this->evaluateTimePreferences($assignment, $timeSlots);
 
-        // Metric 2: Instructor workload balance
         $scores['instructor_balance'] = $this->evaluateInstructorBalance($assignment, $variables);
 
-        // Metric 3: Room utilization efficiency
         $scores['room_utilization'] = $this->evaluateRoomUtilization($assignment);
 
-        // Metric 4: Slot efficiency (NEW)
         $scores['slot_efficiency'] = $this->evaluateSlotEfficiency($assignment);
 
         $totalScore = array_sum($scores);
@@ -55,10 +47,6 @@ class EvaluatorProvider extends ServiceProvider
         return $totalScore;
     }
 
-    /**
-     * Evaluate time slot preferences
-     * Prefer slots between 9:00 AM and 2:15 PM
-     */
     private function evaluateTimePreferences(array $assignment, $timeSlots): int
     {
         $score = 0;
@@ -87,15 +75,10 @@ class EvaluatorProvider extends ServiceProvider
         return $score;
     }
 
-    /**
-     * Evaluate instructor workload balance
-     * Penalize uneven distribution of classes across instructors
-     */
     private function evaluateInstructorBalance(array $assignment, array $variables): int
     {
         $instructorLoads = [];
 
-        // Count assignments per instructor
         foreach ($assignment as $varIndex => $value) {
             $instructorId = $variables[$varIndex]['instructor_id'] ?? null;
 
@@ -108,7 +91,6 @@ class EvaluatorProvider extends ServiceProvider
             return 0;
         }
 
-        // Calculate standard deviation of workload
         $mean = array_sum($instructorLoads) / count($instructorLoads);
         $variance = 0;
 
@@ -118,13 +100,10 @@ class EvaluatorProvider extends ServiceProvider
 
         $stdDev = sqrt($variance / count($instructorLoads));
 
-        // Lower std dev = better balance = higher score
-        // Normalize: perfect balance (stdDev=0) = +50 points
         $score = max(0, 50 - (int)($stdDev * 10));
 
         Log::debug("Instructor balance: mean={$mean}, stdDev={$stdDev}, score={$score}");
 
-        // Log instructors with extreme loads
         $maxLoad = max($instructorLoads);
         $minLoad = min($instructorLoads);
 
@@ -134,11 +113,6 @@ class EvaluatorProvider extends ServiceProvider
 
         return $score;
     }
-
-    /**
-     * Evaluate room utilization efficiency
-     * Prefer compact schedules that don't waste room capacity
-     */
     private function evaluateRoomUtilization(array $assignment): int
     {
         $roomSlotUsage = [];
@@ -149,7 +123,6 @@ class EvaluatorProvider extends ServiceProvider
             $roomSlotUsage[$key] = ($roomSlotUsage[$key] ?? 0) + 1;
         }
 
-        // Bonus for high utilization (more classes packed into fewer room-slot pairs)
         $uniqueRoomSlots = count($roomSlotUsage);
         $totalAssignments = count($assignment);
 
@@ -159,7 +132,6 @@ class EvaluatorProvider extends ServiceProvider
 
         $utilizationRatio = $totalAssignments / $uniqueRoomSlots;
 
-        // Higher ratio = better utilization (should be exactly 1 due to constraints)
         $score = (int)($utilizationRatio * 20);
 
         Log::debug("Room utilization: {$totalAssignments} assignments in {$uniqueRoomSlots} room-time-slots, ratio={$utilizationRatio}");
@@ -167,15 +139,10 @@ class EvaluatorProvider extends ServiceProvider
         return $score;
     }
 
-    /**
-     * Evaluate slot efficiency (NEW)
-     * Reward efficient use of half-slots (pairing tutorials in same time slot)
-     */
     private function evaluateSlotEfficiency(array $assignment): int
     {
         $score = 0;
 
-        // Group assignments by room and time slot
         $roomTimeSlots = [];
 
         foreach ($assignment as $varIndex => $value) {
@@ -196,16 +163,14 @@ class EvaluatorProvider extends ServiceProvider
         $perfectPairings = 0;
         $wastedHalfSlots = 0;
 
-        // Analyze each room-time combination
         foreach ($roomTimeSlots as $key => $slots) {
-            // Perfect pairing: first_half + second_half = efficient use
+
             if ($slots['first_half'] > 0 && $slots['second_half'] > 0) {
                 $pairs = min($slots['first_half'], $slots['second_half']);
                 $score += $pairs * self::HALF_SLOT_EFFICIENCY_BONUS;
                 $perfectPairings += $pairs;
             }
 
-            // Wasted half-slots: unpaired halves
             $unpaired = abs($slots['first_half'] - $slots['second_half']);
             if ($unpaired > 0) {
                 $wastedHalfSlots += $unpaired;
@@ -214,7 +179,6 @@ class EvaluatorProvider extends ServiceProvider
 
         Log::debug("Slot efficiency: {$perfectPairings} perfect pairings, {$wastedHalfSlots} wasted half-slots");
 
-        // Count slot type distribution
         $slotDistribution = [
             'full' => 0,
             'first_half' => 0,
@@ -231,10 +195,6 @@ class EvaluatorProvider extends ServiceProvider
 
         return $score;
     }
-
-    /**
-     * Generate detailed report of schedule quality
-     */
     public function generateReport(array $assignment, array $variables): array
     {
         $timeSlots = TimeSlot::all()->keyBy('id');
@@ -246,7 +206,6 @@ class EvaluatorProvider extends ServiceProvider
             'statistics' => [],
         ];
 
-        // Time distribution
         $timeDistribution = [];
         foreach ($assignment as $value) {
             $slotId = $value['time_slot_id'];
@@ -255,7 +214,6 @@ class EvaluatorProvider extends ServiceProvider
 
         $report['statistics']['time_distribution'] = $timeDistribution;
 
-        // Room distribution
         $roomDistribution = [];
         foreach ($assignment as $value) {
             $roomId = $value['room_id'];
@@ -264,7 +222,6 @@ class EvaluatorProvider extends ServiceProvider
 
         $report['statistics']['room_distribution'] = $roomDistribution;
 
-        // Slot distribution (NEW)
         $slotDistribution = [
             'full' => 0,
             'first_half' => 0,
@@ -277,7 +234,6 @@ class EvaluatorProvider extends ServiceProvider
 
         $report['statistics']['slot_distribution'] = $slotDistribution;
 
-        // Instructor workload
         $instructorWorkload = [];
         foreach ($assignment as $varIndex => $value) {
             $instructorId = $variables[$varIndex]['instructor_id'] ?? 'unassigned';
@@ -286,16 +242,11 @@ class EvaluatorProvider extends ServiceProvider
 
         $report['statistics']['instructor_workload'] = $instructorWorkload;
 
-        // Half-slot pairing analysis (NEW)
         $pairingAnalysis = $this->analyzeHalfSlotPairings($assignment);
         $report['statistics']['half_slot_pairings'] = $pairingAnalysis;
 
         return $report;
     }
-
-    /**
-     * Analyze half-slot pairings for detailed reporting
-     */
     private function analyzeHalfSlotPairings(array $assignment): array
     {
         $roomTimeSlots = [];

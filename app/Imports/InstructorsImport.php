@@ -31,14 +31,11 @@ class InstructorsImport implements OnEachRow
         $courses = str::of($row[2])->explode(',')->toArray();
 
         foreach ($courses as $courseCode) {
-            // Look up course by its code
             $course = Course::where('code', $courseCode)->first();
 
             if ($course) {
-                // Attach safely (no duplicates)
                 $instructor->courses()->syncWithoutDetaching([$course->id]);
             } else {
-                // Optional: Log or count skipped courses
                 Log::warning("Skipped missing course: {$courseCode}");
                 continue;
             }

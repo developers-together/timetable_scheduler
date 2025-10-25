@@ -218,85 +218,7 @@ registerForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> =>
 register.form = registerForm
 
 /**
-* @see routes/web.php:14
-* @route '/'
-*/
-export const home = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: home.url(options),
-    method: 'get',
-})
-
-home.definition = {
-    methods: ["get","head"],
-    url: '/',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see routes/web.php:14
-* @route '/'
-*/
-home.url = (options?: RouteQueryOptions) => {
-    return home.definition.url + queryParams(options)
-}
-
-/**
-* @see routes/web.php:14
-* @route '/'
-*/
-home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: home.url(options),
-    method: 'get',
-})
-
-/**
-* @see routes/web.php:14
-* @route '/'
-*/
-home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: home.url(options),
-    method: 'head',
-})
-
-/**
-* @see routes/web.php:14
-* @route '/'
-*/
-const homeForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: home.url(options),
-    method: 'get',
-})
-
-/**
-* @see routes/web.php:14
-* @route '/'
-*/
-homeForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: home.url(options),
-    method: 'get',
-})
-
-/**
-* @see routes/web.php:14
-* @route '/'
-*/
-homeForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: home.url({
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-home.form = homeForm
-
-/**
-<<<<<<< Updated upstream
-* @see routes/web.php:21
-=======
-* @see routes/web.php:17
->>>>>>> Stashed changes
+* @see routes/web.php:20
 * @route '/dashboard'
 */
 export const dashboard = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -310,11 +232,7 @@ dashboard.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-<<<<<<< Updated upstream
-* @see routes/web.php:21
-=======
-* @see routes/web.php:17
->>>>>>> Stashed changes
+* @see routes/web.php:20
 * @route '/dashboard'
 */
 dashboard.url = (options?: RouteQueryOptions) => {
@@ -322,11 +240,7 @@ dashboard.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-<<<<<<< Updated upstream
-* @see routes/web.php:21
-=======
-* @see routes/web.php:17
->>>>>>> Stashed changes
+* @see routes/web.php:20
 * @route '/dashboard'
 */
 dashboard.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -335,11 +249,7 @@ dashboard.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-<<<<<<< Updated upstream
-* @see routes/web.php:21
-=======
-* @see routes/web.php:17
->>>>>>> Stashed changes
+* @see routes/web.php:20
 * @route '/dashboard'
 */
 dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -348,11 +258,7 @@ dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-<<<<<<< Updated upstream
-* @see routes/web.php:21
-=======
-* @see routes/web.php:17
->>>>>>> Stashed changes
+* @see routes/web.php:20
 * @route '/dashboard'
 */
 const dashboardForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -361,11 +267,7 @@ const dashboardForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> 
 })
 
 /**
-<<<<<<< Updated upstream
-* @see routes/web.php:21
-=======
-* @see routes/web.php:17
->>>>>>> Stashed changes
+* @see routes/web.php:20
 * @route '/dashboard'
 */
 dashboardForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -374,11 +276,7 @@ dashboardForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> =>
 })
 
 /**
-<<<<<<< Updated upstream
-* @see routes/web.php:21
-=======
-* @see routes/web.php:17
->>>>>>> Stashed changes
+* @see routes/web.php:20
 * @route '/dashboard'
 */
 dashboardForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

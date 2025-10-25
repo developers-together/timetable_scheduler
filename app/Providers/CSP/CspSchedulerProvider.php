@@ -24,9 +24,6 @@ class CspSchedulerProvider extends ServiceProvider
         $this->dbSaver = new DatabaseSaver();
     }
 
-    /**
-     * Main entry point for schedule generation
-     */
     public function generateSchedule(): array
     {
         ini_set('memory_limit', '2048M');
@@ -38,33 +35,26 @@ class CspSchedulerProvider extends ServiceProvider
 
             $overallStart = microtime(true);
 
-            // Step 1: Validate inputs
             $this->validateInputs();
 
-            // Step 2: Get problem definition
             $variables = $this->varManager->getVariables();
             $domains = $this->varManager->getDomains();
             $neighbors = $this->varManager->getNeighbors();
 
-            // Step 3: Reset database
             $this->dbSaver->resetDB();
             Log::info("Database reset complete");
 
-            // Step 4: Solve CSP
             $assignment = $this->solver->solve($domains, $neighbors, $variables);
 
             if (!$assignment) {
                 throw new \Exception("No valid timetable found! The problem may be over-constrained.");
             }
 
-            // Step 5: Evaluate solution
             $score = $this->evaluator->evaluate($assignment, $variables);
             Log::info("Schedule quality score: {$score}");
 
-            // Step 6: Log solution details
             $this->logSolution($assignment, $variables);
 
-            // Step 7: Save to database
             $saveStart = microtime(true);
             $this->dbSaver->saveOnDb($assignment, $score, $variables);
             $saveTime = microtime(true) - $saveStart;
@@ -94,10 +84,6 @@ class CspSchedulerProvider extends ServiceProvider
             throw $e;
         }
     }
-
-    /**
-     * Validate that we have all necessary inputs
-     */
     private function validateInputs(): void
     {
         $variables = $this->varManager->getVariables();
@@ -116,7 +102,6 @@ class CspSchedulerProvider extends ServiceProvider
             throw new \Exception("No neighbor relationships found!");
         }
 
-        // Check for empty domains
         $emptyDomainCount = 0;
         foreach ($domains as $varIndex => $domain) {
             if (empty($domain)) {
@@ -138,16 +123,11 @@ class CspSchedulerProvider extends ServiceProvider
 
         Log::info("Input validation passed");
     }
-
-    /**
-     * Log detailed solution information
-     */
     private function logSolution(array $assignment, array $variables): void
     {
         Log::info("=== Solution Details ===");
         Log::info("Assigned {" . count($assignment) . "} out of {" . count($variables) . "} variables");
 
-        // Group by course type
         $byType = [];
         foreach ($assignment as $varIndex => $value) {
             $type = $variables[$varIndex]['type'];
@@ -158,7 +138,6 @@ class CspSchedulerProvider extends ServiceProvider
             Log::info("  - {$type}: {$count} assignments");
         }
 
-        // Sample some assignments for debugging
         Log::debug("Sample assignments:");
         $sampleCount = min(5, count($assignment));
         $samples = array_slice($assignment, 0, $sampleCount, true);

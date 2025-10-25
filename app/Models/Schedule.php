@@ -4,33 +4,34 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 
 class Schedule extends Model
 {
     protected $fillable = ['level', 'term', 'faculty', 'slot', 'course_id', 'course_component_id', 'instructor_id', 'room_id', 'time_slot_id', 'groupNO', 'sectionNO'];
 
-    public function courses(): BelongsToMany
+    public function course(): BelongsTo
     {
-        return $this->belongsToMany(Course::class);
+        return $this->belongsTo(Course::class);
     }
 
-    public function instructors(): BelongsToMany
+    public function instructor(): BelongsTo
     {
-        return $this->belongsToMany(Instructor::class);
+        return $this->belongsTo(Instructor::class);
     }
 
-    public function rooms(): BelongsToMany
+    public function room(): BelongsTo
     {
-        return $this->belongsToMany(Room::class);
+        return $this->belongsTo(Room::class);
     }
-    public function courseComponents(): BelongsToMany
-    {
-        return $this->belongsToMany(CourseComponent::class);
-    }
+    // public function courseComponents(): BelongsTo
+    // {
+    //     return $this->belongsTo(CourseComponent::class);
+    // }
 
-    public function timeSlots(): BelongsToMany
+    public function timeSlot(): BelongsTo
     {
-        return $this->belongsToMany(TimeSlot::class);
+        return $this->belongsTo(TimeSlot::class);
     }
 }
