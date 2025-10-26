@@ -15,6 +15,17 @@ class DatabaseSaverProvider extends ServiceProvider
     {
         Log::info("Saving schedule to database with slot information...");
 
+        // CRITICAL: Validate assignment before saving
+        $conflicts = $this->validateAssignment($assignment, $variables);
+
+        if (!empty($conflicts)) {
+            Log::error("Assignment validation failed! Found conflicts:");
+            foreach (array_slice($conflicts, 0, 10) as $conflict) {
+                Log::error("  - {$conflict}");
+            }
+            throw new \Exception("Assignment has " . count($conflicts) . " conflicts! Cannot save.");
+        }
+
         DB::beginTransaction();
 
         try {
@@ -49,7 +60,7 @@ class DatabaseSaverProvider extends ServiceProvider
                         'level' => $reqCourse->level,
                         'term' => $reqCourse->term,
                         'faculty' => $reqCourse->faculty,
-                        'slot' => $slot,  // NOW PROPERLY USING THE SLOT VALUE
+                        'slot' => $slot,
                         'course_id' => $variable['course_id'],
                         'course_component_id' => $variable['type'],
                         'instructor_id' => $variable['instructor_id'],
@@ -88,6 +99,91 @@ class DatabaseSaverProvider extends ServiceProvider
         }
     }
 
+    /**
+     * Validate assignment for conflicts BEFORE saving to database
+     */
+    private function validateAssignment(array $assignment, array $variables): array
+    {
+        $conflicts = [];
+
+        // Track room usage: [room_id][time_slot_id][slot] = variable_index
+        $roomUsage = [];
+
+        // Track instructor usage: [instructor_id][time_slot_id][slot] = variable_index
+        $instructorUsage = [];
+
+        foreach ($assignment as $varIndex => $value) {
+            $variable = $variables[$varIndex];
+
+            $roomId = $value['room_id'];
+            $timeSlotId = $value['time_slot_id'];
+            $slot = $value['slot'];
+            $instructorId = $variable['instructor_id'] ?? null;
+
+            // Check room conflicts
+            if (!isset($roomUsage[$roomId])) {
+                $roomUsage[$roomId] = [];
+            }
+
+            if (!isset($roomUsage[$roomId][$timeSlotId])) {
+                $roomUsage[$roomId][$timeSlotId] = [];
+            }
+
+            // Check if this room-time-slot combination conflicts
+            if ($slot === 'full') {
+                // Full slot conflicts with everything in this time slot
+                if (!empty($roomUsage[$roomId][$timeSlotId])) {
+                    $conflicts[] = "Variable {$varIndex} (full slot) conflicts with existing assignments in Room {$roomId}, Time {$timeSlotId}";
+                }
+                $roomUsage[$roomId][$timeSlotId]['full'] = $varIndex;
+            } else {
+                // Half slot conflicts with full or same half
+                if (isset($roomUsage[$roomId][$timeSlotId]['full'])) {
+                    $other = $roomUsage[$roomId][$timeSlotId]['full'];
+                    $conflicts[] = "Variable {$varIndex} ({$slot}) conflicts with Variable {$other} (full) in Room {$roomId}, Time {$timeSlotId}";
+                }
+
+                if (isset($roomUsage[$roomId][$timeSlotId][$slot])) {
+                    $other = $roomUsage[$roomId][$timeSlotId][$slot];
+                    $conflicts[] = "Variable {$varIndex} ({$slot}) conflicts with Variable {$other} ({$slot}) in Room {$roomId}, Time {$timeSlotId}";
+                }
+
+                $roomUsage[$roomId][$timeSlotId][$slot] = $varIndex;
+            }
+
+            // Check instructor conflicts
+            if ($instructorId !== null) {
+                if (!isset($instructorUsage[$instructorId])) {
+                    $instructorUsage[$instructorId] = [];
+                }
+
+                if (!isset($instructorUsage[$instructorId][$timeSlotId])) {
+                    $instructorUsage[$instructorId][$timeSlotId] = [];
+                }
+
+                if ($slot === 'full') {
+                    if (!empty($instructorUsage[$instructorId][$timeSlotId])) {
+                        $conflicts[] = "Variable {$varIndex} (full slot) causes instructor {$instructorId} conflict at Time {$timeSlotId}";
+                    }
+                    $instructorUsage[$instructorId][$timeSlotId]['full'] = $varIndex;
+                } else {
+                    if (isset($instructorUsage[$instructorId][$timeSlotId]['full'])) {
+                        $other = $instructorUsage[$instructorId][$timeSlotId]['full'];
+                        $conflicts[] = "Variable {$varIndex} ({$slot}) causes instructor {$instructorId} conflict with Variable {$other} (full)";
+                    }
+
+                    if (isset($instructorUsage[$instructorId][$timeSlotId][$slot])) {
+                        $other = $instructorUsage[$instructorId][$timeSlotId][$slot];
+                        $conflicts[] = "Variable {$varIndex} ({$slot}) causes instructor {$instructorId} conflict with Variable {$other} ({$slot})";
+                    }
+
+                    $instructorUsage[$instructorId][$timeSlotId][$slot] = $varIndex;
+                }
+            }
+        }
+
+        return $conflicts;
+    }
 
     public function resetDB(): void
     {
@@ -124,7 +220,6 @@ class DatabaseSaverProvider extends ServiceProvider
         return $validation;
     }
 
-
     public function getSlotUsageStats(): array
     {
         try {
@@ -143,15 +238,11 @@ class DatabaseSaverProvider extends ServiceProvider
         }
     }
 
-    /**
-     * Check for room conflicts in saved schedule
-     */
     public function validateSavedSchedule(): array
     {
         $conflicts = [];
 
         try {
-
             $roomConflicts = DB::table('schedules as s1')
                 ->join('schedules as s2', function ($join) {
                     $join->on('s1.room_id', '=', 's2.room_id')
@@ -159,7 +250,6 @@ class DatabaseSaverProvider extends ServiceProvider
                         ->on('s1.id', '<', 's2.id');
                 })
                 ->where(function ($query) {
-
                     $query->where('s1.slot', '=', 'full')
                         ->orWhere('s2.slot', '=', 'full')
                         ->orWhereRaw('s1.slot = s2.slot');

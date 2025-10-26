@@ -27,7 +27,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 require __DIR__ . '/settings.php';
 
 
-// Route::get('/cspgenerate', action: [TimetableController::class, 'index']);
+Route::get('/cspgenerate', action: [TimetableController::class, 'index']);
 
 // Route::get('/generate-timetablefast', [TimetableFastController::class, 'generateTimetable']);
 

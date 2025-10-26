@@ -61,10 +61,10 @@ class TimetableController extends Controller
      */
     public function create()
     {
-        $scheduler = new CspScheduler();
-        $result = $scheduler->generateSchedule();
+        // $scheduler = new CspScheduler();
+        // $result = $scheduler->generateSchedule();
 
-        dd($result);
+        // dd($result);
     }
 
     /**

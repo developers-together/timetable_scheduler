@@ -83,8 +83,8 @@ return new class extends Migration
             $table->foreignId('time_slot_id')->constrained('time_slots')->onDelete('cascade');
             $table->integer('groupNO');
             $table->integer('sectionNO');
-            $table->unique(['room_id', 'time_slot_id']);
-            $table->unique(['instructor_id', 'time_slot_id']);
+            $table->unique(['room_id', 'time_slot_id', 'slot']);
+            $table->unique(['instructor_id', 'time_slot_id', 'slot']);
             $table->timestamps();
         });
     }
