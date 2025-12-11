@@ -48,7 +48,17 @@ export default function GeneratePage() {
   const go = () => {
     // Persist a tiny bit of context for the waiting screen (UX only)
     localStorage.setItem("tt_ingestion", JSON.stringify({ source, filename: file?.name ?? null }));
-    router.visit(`/waiting?src=${source || "unknown"}`);
+    
+    if (source === "db") {
+      router.visit(`/waiting?src=${source}`);
+      return;
+    }
+
+    if (file) {
+      router.post('/input', {
+        input: file
+      })
+    }
   };
 
   const Card = ({

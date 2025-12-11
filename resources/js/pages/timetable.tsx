@@ -1,8 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Head } from "@inertiajs/react";
+import { Head, usePage } from "@inertiajs/react";
 import TimetableCell, { OneCourse, hashString } from "@/components/timetable-cell";
-import { useTimetable, ComputationStatus } from "@/hooks/use-timetable";
+import { useTimetable, ComputationStatus, TimetableData } from "@/hooks/use-timetable";
 import WaitingPage from "@/components/waiting-page";
+
+// Props passed from TimetableController::show via Inertia
+interface PageProps {
+  timetable?: TimetableData;
+  [key: string]: unknown;
+}
 
 /* ------------------------------------------------------------------ */
 /* constants                                                           */
@@ -100,12 +106,15 @@ function CheckboxToggle({
 /* page                                                                */
 /* ------------------------------------------------------------------ */
 export default function TimetablePage() {
+  // Get timetable data from Inertia props (passed from TimetableController::show)
+  const { timetable } = usePage<PageProps>().props;
+  
   const {
     timetableData,
     loading,
     computationStatus,
     lastComputedAt,
-  } = useTimetable();
+  } = useTimetable(timetable);
 
   const [timeFmt, setTimeFmt] = useState<"12" | "24">(
     (localStorage.getItem("tt_timeFormat") as "12" | "24") ?? "24",

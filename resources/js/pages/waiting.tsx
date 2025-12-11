@@ -20,7 +20,7 @@ export default function WaitingPage() {
 
     (async () => {
       try {
-        await axios.get("/generate-timetable"); // backend computation
+        await axios.get("/cspgenerate"); // backend computation
       } catch (e) {
         console.error(e);
       } finally {
