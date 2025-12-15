@@ -35,7 +35,7 @@ class VariableManagerProvider extends ServiceProvider
 
     // OPTIMIZATION: Domain size control
     private const ROOMS_PER_VARIABLE = 10;      // Each variable gets 25 rooms
-    private const ROOM_OVERLAP_PERCENTAGE = 40;  // 40% overlap between consecutive variables
+    private const ROOM_OVERLAP_PERCENTAGE = 30;  // 40% overlap between consecutive variables
     private const MIN_ROOMS_REQUIRED = 10;       // Minimum acceptable room count
 
     public function __construct()
@@ -620,17 +620,35 @@ class VariableManagerProvider extends ServiceProvider
                 );
 
                 // Check student group constraint
+                // Logic:
+                // - Lectures conflict with ALL sessions in the same group (students attend all lectures)
+                // - Labs/Tutorials only conflict with:
+                //   1. Lectures in the same group
+                //   2. Other Labs/Tutorials for the SAME section
                 $shareGroup = false;
                 if (($varI['faculty'] ?? null) === ($varJ['faculty'] ?? null) &&
                     ($varI['year'] ?? null) === ($varJ['year'] ?? null)) {
 
                     $gI = $varI['groupNO'] ?? 0;
                     $gJ = $varJ['groupNO'] ?? 0;
+                    $sI = $varI['sectionNO'] ?? 0;
+                    $sJ = $varJ['sectionNO'] ?? 0;
+                    $typeI = $varI['type'];
+                    $typeJ = $varJ['type'];
 
-                    // If either group is 0 (meaning no specific group, or all groups),
-                    // or if they share the same group number, they conflict.
+                    // If same group (or either is group 0 = all groups)
                     if ($gI === 0 || $gJ === 0 || $gI === $gJ) {
-                        $shareGroup = true;
+                        // Check if they actually conflict
+                        if ($typeI === 'Lecture' || $typeJ === 'Lecture') {
+                            // Lectures conflict with everything in the same group
+                            $shareGroup = true;
+                        } else {
+                            // Both are Labs or Tutorials - only conflict if SAME section
+                            // (Different sections serve different students)
+                            if ($sI === $sJ) {
+                                $shareGroup = true;
+                            }
+                        }
                     }
                 }
 

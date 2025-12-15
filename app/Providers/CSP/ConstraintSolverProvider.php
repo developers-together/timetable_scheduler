@@ -181,7 +181,10 @@ class ConstraintSolverProvider extends ServiceProvider
             return false;
         }
 
-        // Group conflict (same Faculty + Year + Group)?
+        // Group conflict (same Faculty + Year)?
+        // Logic matches VariableManagerProvider::makeNeighbors():
+        // - Lectures conflict with ALL sessions in the same group
+        // - Labs/Tutorials only conflict with Lectures or SAME section Labs/Tutorials
         if (($varI['faculty'] ?? null) === ($varJ['faculty'] ?? null) &&
             ($varI['year'] ?? null) === ($varJ['year'] ?? null)) {
             
@@ -189,7 +192,21 @@ class ConstraintSolverProvider extends ServiceProvider
             $groupJ = $varJ['groupNO'] ?? 0;
             
             if ($groupI === 0 || $groupJ === 0 || $groupI === $groupJ) {
-                return false;
+                $typeI = $varI['type'];
+                $typeJ = $varJ['type'];
+                
+                if ($typeI === 'Lecture' || $typeJ === 'Lecture') {
+                    // Lectures conflict with everything in the same group
+                    return false;
+                } else {
+                    // Both are Labs or Tutorials - only conflict if SAME section
+                    $sectionI = $varI['sectionNO'] ?? 0;
+                    $sectionJ = $varJ['sectionNO'] ?? 0;
+                    
+                    if ($sectionI === $sectionJ) {
+                        return false;
+                    }
+                }
             }
         }
 

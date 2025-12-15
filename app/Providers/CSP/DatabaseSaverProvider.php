@@ -182,8 +182,14 @@ class DatabaseSaverProvider extends ServiceProvider
             }
         }
 
-        // Check group conflicts (CRITICAL: Same Faculty + Year + Group cannot be at same time)
-        $groupUsage = []; // [faculty][year][group][time_slot_id][slot] = variable_index
+        // Check group/section conflicts
+        // Logic: Lectures conflict with all sessions in their group
+        //        Labs/Tutorials only conflict with Lectures or same-section Labs/Tutorials
+        
+        // Track lectures: [faculty][year][group][time_slot_id][slot] = varIndex
+        $lectureUsage = [];
+        // Track labs/tutorials: [faculty][year][group][section][time_slot_id][slot] = varIndex  
+        $sectionUsage = [];
         
         foreach ($assignment as $varIndex => $value) {
             $variable = $variables[$varIndex];
@@ -191,77 +197,71 @@ class DatabaseSaverProvider extends ServiceProvider
             $faculty = $variable['faculty'] ?? null;
             $year = $variable['year'] ?? null;
             $group = $variable['groupNO'] ?? 0;
+            $section = $variable['sectionNO'] ?? 0;
+            $type = $variable['type'];
             $timeSlotId = $value['time_slot_id'];
             $slot = $value['slot'];
             
-
-            
             if ($faculty === null || $year === null) {
-                continue; // Skip if missing faculty/year data
+                continue;
             }
             
-            if (!isset($groupUsage[$faculty])) {
-                $groupUsage[$faculty] = [];
-            }
-            
-            if (!isset($groupUsage[$faculty][$year])) {
-                $groupUsage[$faculty][$year] = [];
-            }
-            
-            if (!isset($groupUsage[$faculty][$year][$group])) {
-                $groupUsage[$faculty][$year][$group] = [];
-            }
-            
-            if (!isset($groupUsage[$faculty][$year][$group][$timeSlotId])) {
-                $groupUsage[$faculty][$year][$group][$timeSlotId] = [];
-            }
-            
-            // Check if this group-time combination conflicts
-            if ($slot === 'full') {
-                if (!empty($groupUsage[$faculty][$year][$group][$timeSlotId])) {
-                    $other = array_values($groupUsage[$faculty][$year][$group][$timeSlotId])[0];
-                    $otherVar = $variables[$other];
-                    $conflicts[] = "Variable {$varIndex} ({$variable['course_name']} {$variable['type']} G{$group}) conflicts with Variable {$other} (same group) at Time {$timeSlotId}";
-
-                }
-                $groupUsage[$faculty][$year][$group][$timeSlotId]['full'] = $varIndex;
-            } else {
-                if (isset($groupUsage[$faculty][$year][$group][$timeSlotId]['full'])) {
-                    $other = $groupUsage[$faculty][$year][$group][$timeSlotId]['full'];
-                    $conflicts[] = "Variable {$varIndex} ({$variable['course_name']} {$variable['type']} G{$group}, {$slot}) conflicts with Variable {$other} (full) for same group at Time {$timeSlotId}";
+            // Check conflicts based on type
+            if ($type === 'Lecture') {
+                // Lectures conflict with:
+                // 1. Other lectures for same group at same time
+                // 2. Any lab/tutorial for same group at same time
+                
+                // Check against other lectures
+                if (isset($lectureUsage[$faculty][$year][$group][$timeSlotId])) {
+                    foreach ($lectureUsage[$faculty][$year][$group][$timeSlotId] as $otherSlot => $other) {
+                        if ($slot === 'full' || $otherSlot === 'full' || $slot === $otherSlot) {
+                            $conflicts[] = "Lecture {$varIndex} conflicts with Lecture {$other} at Time {$timeSlotId}";
+                        }
+                    }
                 }
                 
-                if (isset($groupUsage[$faculty][$year][$group][$timeSlotId][$slot])) {
-                    $other = $groupUsage[$faculty][$year][$group][$timeSlotId][$slot];
-                    $conflicts[] = "Variable {$varIndex} ({$variable['course_name']} {$variable['type']} G{$group}, {$slot}) conflicts with Variable {$other} ({$slot}) for same group at Time {$timeSlotId}";
-                }
-                
-                $groupUsage[$faculty][$year][$group][$timeSlotId][$slot] = $varIndex;
-            }
-            
-            // Also check for wildcard (group 0) conflicts with ANY other group
-            if ($group === 0) {
-                // This is a lecture for all groups - check against ALL groups
-                foreach ($groupUsage[$faculty][$year] as $otherGroup => $timeSlots) {
-                    if ($otherGroup === 0) continue; // Already checked above
-                    
-                    if (isset($timeSlots[$timeSlotId])) {
-                        foreach ($timeSlots[$timeSlotId] as $otherSlot => $otherVar) {
-                            if ($slot === 'full' || $otherSlot === 'full' || $slot === $otherSlot) {
-                                $conflicts[] = "Variable {$varIndex} ({$variable['course_name']} Lecture G0/ALL, {$slot}) conflicts with Variable {$otherVar} (G{$otherGroup}, {$otherSlot}) at Time {$timeSlotId}";
+                // Check against labs/tutorials in same group (any section)
+                if (isset($sectionUsage[$faculty][$year][$group])) {
+                    foreach ($sectionUsage[$faculty][$year][$group] as $sec => $timeslots) {
+                        if (isset($timeslots[$timeSlotId])) {
+                            foreach ($timeslots[$timeSlotId] as $otherSlot => $other) {
+                                if ($slot === 'full' || $otherSlot === 'full' || $slot === $otherSlot) {
+                                    $conflicts[] = "Lecture {$varIndex} conflicts with Lab/Tutorial {$other} at Time {$timeSlotId}";
+                                }
                             }
                         }
                     }
                 }
+                
+                // Store this lecture
+                $lectureUsage[$faculty][$year][$group][$timeSlotId][$slot] = $varIndex;
+                
             } else {
-                // Check if there's a group 0 (lecture for all) at this time
-                if (isset($groupUsage[$faculty][$year][0][$timeSlotId])) {
-                    foreach ($groupUsage[$faculty][$year][0][$timeSlotId] as $otherSlot => $otherVar) {
+                // Labs/Tutorials conflict with:
+                // 1. Lectures in same group at same time
+                // 2. Other labs/tutorials for SAME section at same time
+                
+                // Check against lectures
+                if (isset($lectureUsage[$faculty][$year][$group][$timeSlotId])) {
+                    foreach ($lectureUsage[$faculty][$year][$group][$timeSlotId] as $otherSlot => $other) {
                         if ($slot === 'full' || $otherSlot === 'full' || $slot === $otherSlot) {
-                            $conflicts[] = "Variable {$varIndex} ({$variable['course_name']} {$variable['type']} G{$group}, {$slot}) conflicts with Variable {$otherVar} (Lecture G0/ALL, {$otherSlot}) at Time {$timeSlotId}";
+                            $conflicts[] = "Lab/Tutorial {$varIndex} conflicts with Lecture {$other} at Time {$timeSlotId}";
                         }
                     }
                 }
+                
+                // Check against same-section labs/tutorials
+                if (isset($sectionUsage[$faculty][$year][$group][$section][$timeSlotId])) {
+                    foreach ($sectionUsage[$faculty][$year][$group][$section][$timeSlotId] as $otherSlot => $other) {
+                        if ($slot === 'full' || $otherSlot === 'full' || $slot === $otherSlot) {
+                            $conflicts[] = "Lab/Tutorial {$varIndex} conflicts with Lab/Tutorial {$other} (same section) at Time {$timeSlotId}";
+                        }
+                    }
+                }
+                
+                // Store this lab/tutorial
+                $sectionUsage[$faculty][$year][$group][$section][$timeSlotId][$slot] = $varIndex;
             }
         }
 

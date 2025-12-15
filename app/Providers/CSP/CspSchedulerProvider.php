@@ -63,7 +63,9 @@ class CspSchedulerProvider extends ServiceProvider
             }
 
             if (!$assignment) {
-                throw new \Exception("No valid timetable found! The problem may be over-constrained.");
+                // Run diagnostics before throwing exception
+                $this->diagnoseFailure($variables, $domains, $neighbors);
+                throw new \Exception("No valid timetable found! The problem may be over-constrained. Check logs for diagnostics.");
             }
 
             $score = $this->evaluator->evaluate($assignment, $variables);
@@ -99,6 +101,157 @@ class CspSchedulerProvider extends ServiceProvider
 
             throw $e;
         }
+    }
+    
+    /**
+     * Diagnose why no solution was found
+     */
+    private function diagnoseFailure(array $variables, array $domains, array $neighbors): void
+    {
+        Log::error("========================================");
+        Log::error("=== DIAGNOSTIC REPORT: NO SOLUTION FOUND ===");
+        Log::error("========================================");
+        
+        // 1. Capacity Analysis
+        Log::error("\n=== 1. CAPACITY ANALYSIS ===");
+        $totalVars = count($variables);
+        $timeSlotCount = \App\Models\TimeSlot::count();
+        $roomCount = \App\Models\Room::count();
+        $maxPossibleSlots = $timeSlotCount * $roomCount;
+        
+        Log::error("Total variables to schedule: {$totalVars}");
+        Log::error("Time slots available: {$timeSlotCount}");
+        Log::error("Rooms available: {$roomCount}");
+        Log::error("Max possible assignments (timeSlots × rooms): {$maxPossibleSlots}");
+        
+        if ($totalVars > $maxPossibleSlots) {
+            Log::error("❌ CRITICAL: More variables ({$totalVars}) than available slots ({$maxPossibleSlots})!");
+        } else {
+            $utilizationPercent = round(($totalVars / $maxPossibleSlots) * 100, 1);
+            Log::error("Theoretical capacity utilization: {$utilizationPercent}%");
+            if ($utilizationPercent > 80) {
+                Log::error("⚠️ WARNING: High utilization (>80%) makes scheduling very difficult");
+            }
+        }
+        
+        // 2. Variable breakdown by type
+        Log::error("\n=== 2. VARIABLES BY TYPE ===");
+        $byType = [];
+        $byFacultyYear = [];
+        $lecturesByFacultyYear = [];
+        foreach ($variables as $var) {
+            $type = $var['type'];
+            $byType[$type] = ($byType[$type] ?? 0) + 1;
+            
+            $key = ($var['faculty'] ?? 'Unknown') . ' Year ' . ($var['year'] ?? '?');
+            $byFacultyYear[$key] = ($byFacultyYear[$key] ?? 0) + 1;
+            
+            // Track lectures separately - they're the bottleneck
+            if ($type === 'Lecture') {
+                $lecturesByFacultyYear[$key] = ($lecturesByFacultyYear[$key] ?? 0) + 1;
+            }
+        }
+        
+        foreach ($byType as $type => $count) {
+            Log::error("  {$type}: {$count} sessions");
+        }
+        
+        Log::error("\n=== 3. LECTURES BY FACULTY/YEAR (These must not overlap!) ===");
+        foreach ($lecturesByFacultyYear as $key => $count) {
+            Log::error("  {$key}: {$count} lectures");
+            if ($count > $timeSlotCount) {
+                Log::error("    ❌ CRITICAL: More lectures ({$count}) than time slots ({$timeSlotCount}) for {$key}!");
+            }
+        }
+        
+        Log::error("\n=== 4. TOTAL SESSIONS BY FACULTY/YEAR (Labs/Tutorials can overlap across sections) ===");
+        foreach ($byFacultyYear as $key => $count) {
+            $lectureCount = $lecturesByFacultyYear[$key] ?? 0;
+            Log::error("  {$key}: {$count} total ({$lectureCount} lectures)");
+        }
+        
+        // 3. Domain size analysis (find problem variables)
+        Log::error("\n=== 5. PROBLEM VARIABLES (Small Domains) ===");
+        $domainSizes = [];
+        foreach ($domains as $varIndex => $domain) {
+            $domainSizes[$varIndex] = count($domain);
+        }
+        asort($domainSizes);
+        
+        $problemVars = array_slice($domainSizes, 0, 10, true);
+        foreach ($problemVars as $varIndex => $size) {
+            $var = $variables[$varIndex];
+            $neighborCount = count($neighbors[$varIndex] ?? []);
+            Log::error("  Var {$varIndex}: {$var['course_name']} ({$var['type']}) - Domain: {$size}, Neighbors: {$neighborCount}");
+            Log::error("    Faculty: {$var['faculty']}, Year: {$var['year']}, Group: {$var['groupNO']}");
+        }
+        
+        // 4. High-conflict variables (most neighbors)
+        Log::error("\n=== 6. HIGH-CONFLICT VARIABLES (Most Neighbors) ===");
+        $neighborCounts = [];
+        foreach ($neighbors as $varIndex => $neighborList) {
+            $neighborCounts[$varIndex] = count($neighborList);
+        }
+        arsort($neighborCounts);
+        
+        $highConflict = array_slice($neighborCounts, 0, 10, true);
+        foreach ($highConflict as $varIndex => $count) {
+            $var = $variables[$varIndex];
+            $domainSize = count($domains[$varIndex] ?? []);
+            Log::error("  Var {$varIndex}: {$var['course_name']} ({$var['type']}) - Neighbors: {$count}, Domain: {$domainSize}");
+        }
+        
+        // 5. Room type availability
+        Log::error("\n=== 7. ROOM TYPE AVAILABILITY ===");
+        $roomsByType = \App\Models\Room::selectRaw('type, COUNT(*) as cnt')->groupBy('type')->pluck('cnt', 'type');
+        
+        $lectureVars = $byType['Lecture'] ?? 0;
+        $labVars = $byType['Lab'] ?? 0;
+        $tutorialVars = $byType['Tutorial'] ?? 0;
+        
+        $lectureRooms = ($roomsByType['Classroom'] ?? 0) + ($roomsByType['Theater'] ?? 0) + ($roomsByType['Hall'] ?? 0);
+        $labRooms = ($roomsByType['ComputerLab'] ?? 0) + ($roomsByType['BioLab'] ?? 0) + 
+                   ($roomsByType['PhysicsLab'] ?? 0) + ($roomsByType['DrawingLab'] ?? 0) +
+                   ($roomsByType['DrawingStudio'] ?? 0) + ($roomsByType['Classroom'] ?? 0);
+        $tutorialRooms = $roomsByType['Classroom'] ?? 0;
+        
+        Log::error("Lectures needed: {$lectureVars}, Suitable rooms: {$lectureRooms}, Capacity: " . ($lectureRooms * $timeSlotCount));
+        Log::error("Labs needed: {$labVars}, Suitable rooms: {$labRooms}, Capacity: " . ($labRooms * $timeSlotCount));
+        Log::error("Tutorials needed: {$tutorialVars}, Suitable rooms: {$tutorialRooms}, Capacity: " . ($tutorialRooms * $timeSlotCount * 2));
+        
+        // Check for bottlenecks
+        if ($lectureVars > $lectureRooms * $timeSlotCount) {
+            Log::error("❌ BOTTLENECK: Not enough lecture room capacity!");
+        }
+        if ($labVars > $labRooms * $timeSlotCount) {
+            Log::error("❌ BOTTLENECK: Not enough lab room capacity!");
+        }
+        
+        // 6. Instructor analysis
+        Log::error("\n=== 8. INSTRUCTOR WORKLOAD ===");
+        $instructorVars = [];
+        foreach ($variables as $varIndex => $var) {
+            $instId = $var['instructor_id'] ?? 'none';
+            if ($instId !== 'none' && $instId !== null) {
+                $instructorVars[$instId] = ($instructorVars[$instId] ?? 0) + 1;
+            }
+        }
+        arsort($instructorVars);
+        
+        foreach (array_slice($instructorVars, 0, 5, true) as $instId => $count) {
+            if ($count > $timeSlotCount) {
+                Log::error("❌ Instructor {$instId}: {$count} sessions (EXCEEDS {$timeSlotCount} time slots!)");
+            } else {
+                Log::error("  Instructor {$instId}: {$count} sessions");
+            }
+        }
+        
+        Log::error("\n=== RECOMMENDATIONS ===");
+        Log::error("1. Check if any Faculty/Year group has more sessions than time slots");
+        Log::error("2. Check if any instructor is assigned more sessions than available time slots");
+        Log::error("3. Verify room types match course requirements");
+        Log::error("4. Consider reducing required capacity or adding more time slots/rooms");
+        Log::error("========================================");
     }
     private function validateInputs(): void
     {
