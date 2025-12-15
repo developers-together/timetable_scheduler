@@ -67,6 +67,7 @@ return new class extends Migration
                 $table->enum('day', ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
                 $table->time('start');
                 $table->time('end');
+                $table->unique(['day', 'start', 'end']); // Prevent duplicate time slots
                 // $table->timestamps();
             });
         }

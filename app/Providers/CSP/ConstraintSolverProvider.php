@@ -17,7 +17,7 @@ class ConstraintSolverProvider extends ServiceProvider
     private int $constraintChecks = 0;
     private int $domainWipeouts = 0;
 
-    private int $maxBacktrackCalls = 20000;
+    private int $maxBacktrackCalls = 1000000;
     private int $maxConstraintChecks = 20000000;
     private int $consecutiveFailures = 100;
     private int $lastFailedVar = -1;
@@ -142,60 +142,57 @@ class ConstraintSolverProvider extends ServiceProvider
 
     private function isConsistent(int $xi, int $xj, array $valueI, array $valueJ): bool
     {
-        $startTime = microtime(true);
-
-        // $this->constraintChecks++;
-
-        if (
-            $this->constraintChecks % 10000 === 0 &&
-            $this->constraintChecks > $this->maxConstraintChecks
-        ) {
-            throw new \RuntimeException("Too many constraint checks - over-constrained");
-        }
-
+        // Fast path: same variable or different time slots
         if ($xi === $xj) {
-            $this->timeInConsistencyChecks += microtime(true) - $startTime;
             return true;
         }
 
         $timeI = $valueI['time_slot_id'];
         $timeJ = $valueJ['time_slot_id'];
 
-        // OPTIMIZATION: If different time slots, no conflict possible
         if ($timeI !== $timeJ) {
-            $this->timeInConsistencyChecks += microtime(true) - $startTime;
             return true;
         }
 
-        // Same time slot - check room conflict
-        $roomI = $valueI['room_id'];
-        $roomJ = $valueJ['room_id'];
+        // Same time slot - check conflicts
+        $slotI = $valueI['slot'];
+        $slotJ = $valueJ['slot'];
+        
+        // Slots conflict if: either is full OR they're the same half
+        $slotsConflict = ($slotI === 'full' || $slotJ === 'full' || $slotI === $slotJ);
+        
+        if (!$slotsConflict) {
+            return true; // Different halves = no conflict
+        }
 
-        if ($roomI === $roomJ) {
-            $slotI = $valueI['slot'];
-            $slotJ = $valueJ['slot'];
+        // Room conflict?
+        if ($valueI['room_id'] === $valueJ['room_id']) {
+            return false;
+        }
 
-            if ($slotI === 'full' || $slotJ === 'full' || $slotI === $slotJ) {
-                $this->timeInConsistencyChecks += microtime(true) - $startTime;
+        // Instructor conflict?
+        $varI = $this->variables[$xi];
+        $varJ = $this->variables[$xj];
+        
+        $instructorI = $varI['instructor_id'] ?? null;
+        $instructorJ = $varJ['instructor_id'] ?? null;
+
+        if ($instructorI !== null && $instructorI === $instructorJ) {
+            return false;
+        }
+
+        // Group conflict (same Faculty + Year + Group)?
+        if (($varI['faculty'] ?? null) === ($varJ['faculty'] ?? null) &&
+            ($varI['year'] ?? null) === ($varJ['year'] ?? null)) {
+            
+            $groupI = $varI['groupNO'] ?? 0;
+            $groupJ = $varJ['groupNO'] ?? 0;
+            
+            if ($groupI === 0 || $groupJ === 0 || $groupI === $groupJ) {
                 return false;
             }
         }
 
-        // Check instructor conflict
-        $instructorI = $this->variables[$xi]['instructor_id'] ?? null;
-        $instructorJ = $this->variables[$xj]['instructor_id'] ?? null;
-
-        if ($instructorI !== null && $instructorJ !== null && $instructorI === $instructorJ) {
-            $slotI = $valueI['slot'];
-            $slotJ = $valueJ['slot'];
-
-            if ($slotI === 'full' || $slotJ === 'full' || $slotI === $slotJ) {
-                $this->timeInConsistencyChecks += microtime(true) - $startTime;
-                return false;
-            }
-        }
-
-        $this->timeInConsistencyChecks += microtime(true) - $startTime;
         return true;
     }
 
@@ -206,11 +203,6 @@ class ConstraintSolverProvider extends ServiceProvider
         if ($this->backtrackCalls >= $this->maxBacktrackCalls) {
             Log::error("Max backtrack calls ({$this->maxBacktrackCalls}) exceeded");
             return null;
-        }
-
-        if ($this->backtrackCalls % 100 === 0) {
-            $progress = count($assignment) . "/" . count($domains);
-            Log::info("Backtrack #{$this->backtrackCalls}: {$progress} assigned");
         }
 
         if (count($assignment) === count($domains)) {
@@ -283,6 +275,7 @@ class ConstraintSolverProvider extends ServiceProvider
     private function selectUnassignedVariable(array $domains, array $assignment): ?int
     {
         $minSize = PHP_INT_MAX;
+        $maxDegree = -1;
         $selectedVar = null;
 
         foreach ($domains as $var => $domain) {
@@ -291,9 +284,13 @@ class ConstraintSolverProvider extends ServiceProvider
             }
 
             $domainSize = count($domain);
-
-            if ($domainSize < $minSize) {
+            
+            // MRV: prefer smaller domains
+            // Degree: break ties by number of unassigned neighbors
+            if ($domainSize < $minSize || 
+                ($domainSize === $minSize && isset($this->neighbors[$var]) && count($this->neighbors[$var]) > $maxDegree)) {
                 $minSize = $domainSize;
+                $maxDegree = isset($this->neighbors[$var]) ? count($this->neighbors[$var]) : 0;
                 $selectedVar = $var;
             }
         }
@@ -303,9 +300,18 @@ class ConstraintSolverProvider extends ServiceProvider
 
     private function isConsistentWithAssignment(int $var, array $value, array $assignment): bool
     {
-        foreach ($assignment as $assignedVar => $assignedValue) {
-            if (!$this->isConsistent($var, $assignedVar, $value, $assignedValue)) {
-                return false;
+        // CRITICAL FIX: Only check neighbors, not all variables!
+        // This is both a performance optimization AND a correctness fix
+        if (!isset($this->neighbors[$var])) {
+            return true; // No neighbors = no conflicts
+        }
+        
+        foreach ($this->neighbors[$var] as $neighbor) {
+            // Only check if the neighbor has been assigned
+            if (isset($assignment[$neighbor])) {
+                if (!$this->isConsistent($var, $neighbor, $value, $assignment[$neighbor])) {
+                    return false;
+                }
             }
         }
         return true;

@@ -40,6 +40,8 @@ class GenerateInputController extends Controller
             'input' => 'required|mimes:xlsx'
         ]);
 
+        RequiredCourse::truncate();
+
         $file = $request->file('input');
 
         Excel::import(new RequiredCoursesImport, $file);

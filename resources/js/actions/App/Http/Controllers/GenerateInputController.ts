@@ -170,15 +170,15 @@ export const index = {
 * @see app/Http/Controllers/GenerateInputController.php:37
 * @route '/input'
 */
-export const store = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(options),
-    method: 'get',
+    method: 'post',
 })
 
 store.definition = {
-    methods: ["get","head"],
+    methods: ["post"],
     url: '/input',
-} satisfies RouteDefinition<["get","head"]>
+} satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\GenerateInputController::store
@@ -194,9 +194,9 @@ store.url = (options?: RouteQueryOptions) => {
 * @see app/Http/Controllers/GenerateInputController.php:37
 * @route '/input'
 */
-store.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(options),
-    method: 'get',
+    method: 'post',
 })
 
 /**
@@ -204,19 +204,9 @@ store.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 * @see app/Http/Controllers/GenerateInputController.php:37
 * @route '/input'
 */
-store.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: store.url(options),
-    method: 'head',
-})
-
-/**
-* @see \App\Http\Controllers\GenerateInputController::store
-* @see app/Http/Controllers/GenerateInputController.php:37
-* @route '/input'
-*/
-const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: store.url(options),
-    method: 'get',
+    method: 'post',
 })
 
 /**
@@ -224,24 +214,9 @@ const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => (
 * @see app/Http/Controllers/GenerateInputController.php:37
 * @route '/input'
 */
-storeForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: store.url(options),
-    method: 'get',
-})
-
-/**
-* @see \App\Http\Controllers\GenerateInputController::store
-* @see app/Http/Controllers/GenerateInputController.php:37
-* @route '/input'
-*/
-storeForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: store.url({
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
+    method: 'post',
 })
 
 store.form = storeForm

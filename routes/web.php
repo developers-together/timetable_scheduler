@@ -43,7 +43,7 @@ Route::get('/generate', [GenerateInputController::class, 'index']);  // page 1
 
 
 Route::get('/waiting', fn() => Inertia::render('waiting'));    // page 2
-Route::get('/timetablejson', [TimetableController::class, 'index']); // page 3
+Route::get('/timetablejson', [TimetableController::class, 'show1']); // page 3
 Route::get('/timetable', [TimetableController::class, 'show']); // page 3
 
-Route::get('/input', [GenerateInputController::class, 'store']);// page 3
+Route::post('/input', [GenerateInputController::class, 'store']);// page 3

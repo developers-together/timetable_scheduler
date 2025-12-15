@@ -148,14 +148,11 @@ export default function TimetablePage() {
     section?: string;      // numeric-only string in UI
   };
   const [filters, setFilters] = useState<Filters>({});
-  const [applied, setApplied] = useState<Filters>({});
-  const [skip, setSkip] = useState(false);
-  const [shake, setShake] = useState(false);
+
 
   // data -> option lists (derive numeric-only sections)
-  const rawData = timetableData?.data ?? {};
+  const rawData = timetableData?.data ?? [];
   const allItems = useMemo(() => {
-    type Detail = { slot: string | string[]; room_id: string; instructor_id: string | null } & Record<string, any>;
     const instructors = new Set<string>();
     const rooms = new Set<string>();
     const faculties = new Set<string>();
@@ -164,19 +161,17 @@ export default function TimetablePage() {
     const groups = new Set<string>();
     const sectionsNum = new Set<number>(); // numeric-only sections
 
-    for (const [, types] of Object.entries<any>(rawData)) {
-      for (const [, details] of Object.entries<Detail>(types || {})) {
-        if (!details) continue;
-        if (details.instructor_id) instructors.add(String(details.instructor_id));
-        if (details.room_id) rooms.add(String(details.room_id));
-        if (details.faculty != null) faculties.add(String(details.faculty));
-        if (typeof details.year === "number") years.add(details.year);
-        if (typeof details.semester === "number") semesters.add(details.semester);
-        if (details.group != null) groups.add(String(details.group));
-        if (details.section != null) {
-          const n = Number(details.section);
-          if (!Number.isNaN(n) && Number.isFinite(n)) sectionsNum.add(n);
-        }
+    for (const details of rawData) {
+      if (!details) continue;
+      if (details.instructor_id) instructors.add(String(details.instructor_id));
+      if (details.room_id) rooms.add(String(details.room_id));
+      if (details.faculty != null) faculties.add(String(details.faculty));
+      if (typeof details.year === "number") years.add(details.year);
+      if (typeof details.semester === "number") semesters.add(details.semester);
+      if (details.group != null) groups.add(String(details.group));
+      if (details.section != null) {
+        const n = Number(details.section);
+        if (!Number.isNaN(n) && Number.isFinite(n)) sectionsNum.add(n);
       }
     }
     const sections = Array.from(sectionsNum).sort((a, b) => a - b);
@@ -191,28 +186,23 @@ export default function TimetablePage() {
     };
   }, [rawData]);
 
-  // Instructor selection skips all mandatory checks (as requested)
-  const instructorChosen = Boolean(applied.instructor);
-  const mustValidate = !skip && !instructorChosen;
-
   // detect if anything is applied; used to keep default blank
   const hasAnyApplied =
-    Boolean(applied.faculty) ||
-    Boolean(applied.instructor) ||
-    Boolean(applied.room) ||
-    typeof applied.yearRaw === "number" ||
-    typeof applied.semesterRaw === "number" ||
-    Boolean(applied.group) ||
-    Boolean(applied.section);
+    Boolean(filters.faculty) ||
+    Boolean(filters.instructor) ||
+    Boolean(filters.room) ||
+    typeof filters.yearRaw === "number" ||
+    typeof filters.semesterRaw === "number" ||
+    Boolean(filters.group) ||
+    Boolean(filters.section);
 
   // filtered dataset — blank by default unless skip OR something applied
   const filteredData = useMemo(() => {
-    if (!skip && !hasAnyApplied) return {}; // default blank state
+    // if (!skip && !hasAnyApplied) return []; // default blank state
 
-    const out: typeof rawData = {};
-    const f = applied;
+    const f = filters;
 
-    const passes = (_courseId: string, _type: string, d: any) => {
+    const passes = (d: any) => {
       if (f.faculty && d.faculty != null && String(d.faculty) !== f.faculty) return false;
       if (f.instructor && String(d.instructor_id) !== f.instructor) return false;
       if (f.room && String(d.room_id) !== f.room) return false;
@@ -223,42 +213,41 @@ export default function TimetablePage() {
       return true;
     };
 
-    for (const [cid, types] of Object.entries<any>(rawData)) {
-      for (const [t, details] of Object.entries<any>(types || {})) {
-        if (!details) continue;
-        if (passes(cid, t, details)) {
-          (out as any)[cid] ??= {};
-          (out as any)[cid][t] = details;
-        }
-      }
-    }
+    const out = rawData.filter(passes);
     return out;
-  }, [rawData, applied, skip, hasAnyApplied]);
+  }, [rawData, filters, hasAnyApplied]);
+
+
 
   // courses for a cell
   const coursesFor = (day: string, slot: string): OneCourse[] => {
     const start = slot.split("-")[0];
     const list: OneCourse[] = [];
-    for (const [courseId, types] of Object.entries<any>(filteredData)) {
-      for (const [type, details] of Object.entries<any>(types || {})) {
-        const slots: string[] = Array.isArray(details?.slot) ? details.slot : [details?.slot].filter(Boolean);
-        for (const s of slots) {
-          const [d, st] = String(s).split("-");
-          if (d === day && st === start) {
-            list.push({
-              courseId,
-              courseName: courseId,
-              type,
-              roomId: details?.room_id,
-              instructorId: details?.instructor_id ?? null,
-              faculty: details?.faculty ?? null,
-              year: details?.year ?? null,
-              semester: details?.semester ?? null,
-              group: details?.group ?? null,
-              section: details?.section ?? null,
-              creditHours: details?.credit_hours ?? null,
-            });
-          }
+    
+    const dayMap: Record<string, string> = {
+      "Sun": "Sunday", "Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday", "Fri": "Friday", "Sat": "Saturday"
+    };
+
+    for (const details of filteredData) {
+      const slots: string[] = Array.isArray(details?.slot) ? details.slot : [details?.slot].filter(Boolean);
+      for (const s of slots) {
+        const [dRaw, st] = String(s).split("-");
+        const d = dayMap[dRaw] || dRaw; // Handle both "Mon" and "Monday"
+        
+        if (d === day && st === start) {
+          list.push({
+            courseId: details.course_code,
+            courseName: details.course_name ?? details.course_code,
+            type: details.type,
+            roomId: details.room_id,
+            instructorId: details.instructor_id ?? null,
+            faculty: details.faculty ?? null,
+            year: details.year ?? null,
+            semester: details.semester ?? null,
+            group: details.group ?? null,
+            section: details.section ?? null,
+            creditHours: details.credit_hours ?? null,
+          });
         }
       }
     }
@@ -277,35 +266,11 @@ export default function TimetablePage() {
   }, [filteredData]);
 
   // actions
-  const onRegenerate = () => {
-    const missing: string[] = [];
-    if (mustValidate) {
-      const hasFac = allItems.faculties.length > 0;
-      if (hasFac && !applied.faculty) missing.push("Faculty");
-      if (!applied.year && allItems.years.length > 0) missing.push("Year");
-      if (!applied.semester && allItems.semesters.length > 0) missing.push("Semester");
-      if (!applied.group && allItems.groups.length > 0) missing.push("Group");
-      const hasSections = (allItems.sections?.length ?? 0) > 0;
-      if (!applied.section && hasSections) missing.push("Section");
-    }
-    if (missing.length > 0) {
-      setShake(true);
-      setTimeout(() => setShake(false), 450);
-      return;
-    }
-    setSkip(false);
-  };
-
   const onReset = () => {
     setFilters({});
-    setApplied({});
-    setSkip(false);
   };
 
-  const onSkip = () => {
-    setSkip(true);
-    setApplied({}); // show everything
-  };
+
 
   // popups / modals
   const [activeCourse, setActiveCourse] = useState<OneCourse | null>(null);
@@ -351,194 +316,25 @@ export default function TimetablePage() {
       disabled ? "opacity-60" : "",
     ].join(" ");
 
-  /* Group 1: Faculty + Instructor + Room — blue accents */
-  const GroupOne = (
-    <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3">
-      <div className="mb-2 text-[12px] font-semibold text-blue-900">
-        1 • Faculty, Instructor & Room
-      </div>
 
-      <div className="mb-3">
-        <Label>Faculty</Label>
-        <select
-          value={filters.faculty ?? ""}
-          onChange={(e) => setFilters((s) => ({ ...s, faculty: e.target.value || undefined }))}
-          className={selectClass(filters.faculty, allItems.faculties.length === 0)}
-          disabled={allItems.faculties.length === 0}
-        >
-          <option value="">
-            {allItems.faculties.length === 0 ? "No faculties in data" : "Select faculty…"}
-          </option>
-          {allItems.faculties.map((f) => (
-            <option key={f} value={f}>{f}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="mb-3">
-        <Label>Instructor</Label>
-        <select
-          value={filters.instructor ?? ""}
-          onChange={(e) => setFilters((s) => ({ ...s, instructor: e.target.value || undefined }))}
-          className={selectClass(filters.instructor)}
-        >
-          <option value="">Select instructor…</option>
-          {allItems.instructors.map((i) => (
-            <option key={i} value={i}>{i}</option>
-          ))}
-        </select>
-        {filters.instructor && (
-          <p className="mt-1 text-[11px] text-blue-800/80">
-            Selecting an instructor skips other mandatory filters.
-          </p>
-        )}
-      </div>
-
-      <div>
-        <Label>Room</Label>
-        <select
-          value={filters.room ?? ""}
-          onChange={(e) => setFilters((s) => ({ ...s, room: e.target.value || undefined }))}
-          className={selectClass(filters.room)}
-        >
-          <option value="">Select room…</option>
-          {allItems.rooms.map((r) => (
-            <option key={r} value={r}>{r}</option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-
-  /* Group 2: Year + Semester — amber accents */
-  const GroupTwo = (
-    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
-      <div className="mb-2 text-[12px] font-semibold text-amber-900">2 • Year &amp; Semester</div>
-      <div className="mb-3">
-        <Label>Year</Label>
-        <select
-          value={filters.yearRaw ?? ""}
-          onChange={(e) => {
-            const yr = e.target.value ? Number(e.target.value) : undefined;
-            setFilters((s) => ({ ...s, yearRaw: yr, year: yr ? `${ordinal(yr)} year` : undefined }));
-          }}
-          disabled={Boolean(filters.instructor)}
-          className={selectClass(filters.yearRaw != null ? String(filters.yearRaw) : "", Boolean(filters.instructor))}
-        >
-          <option value="">Select year…</option>
-          {(() => {
-            const base = [1, 2, 3, 4];
-            const extra = allItems.years.filter((y) => y > 4 && !base.includes(y));
-            return [...base, ...extra].map((y) => (
-              <option key={y} value={y}>{`${ordinal(y)} year`}</option>
-            ));
-          })()}
-        </select>
-      </div>
-      <div>
-        <Label>Semester</Label>
-        <select
-          value={filters.semesterRaw ?? ""}
-          onChange={(e) => {
-            const raw = e.target.value ? Number(e.target.value) : undefined;
-            setFilters((s) => ({ ...s, semesterRaw: raw, semester: raw ? (raw % 2 === 1 ? "1st" : "2nd") : undefined }));
-          }}
-          disabled={Boolean(filters.instructor)}
-          className={selectClass(filters.semesterRaw != null ? String(filters.semesterRaw) : "", Boolean(filters.instructor))}
-        >
-          <option value="">Select semester…</option>
-          {(allItems.semesters.length ? allItems.semesters : [1, 2]).map((s) => (
-            <option key={s} value={s}>{s % 2 === 1 ? "1st" : "2nd"}</option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-
-  /* Group 3: Group + Section — emerald accents (section numeric-only) */
-  const GroupThree = (
-    <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
-      <div className="mb-2 text-[12px] font-semibold text-emerald-900">3 • Group &amp; Section</div>
-      <div className="mb-3">
-        <Label>Group</Label>
-        <select
-          value={filters.group ?? ""}
-          onChange={(e) => setFilters((s) => ({ ...s, group: e.target.value || undefined }))}
-          disabled={Boolean(filters.instructor)}
-          className={selectClass(filters.group, Boolean(filters.instructor))}
-        >
-          <option value="">Select group…</option>
-          {(allItems.groups.length ? allItems.groups : ["1", "2", "3"]).map((g) => (
-            <option key={g} value={g}>{g}</option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <Label>Section (numbers)</Label>
-        <select
-          value={filters.section ?? ""}
-          onChange={(e) => setFilters((s) => ({ ...s, section: e.target.value || undefined }))}
-          disabled={Boolean(filters.instructor)}
-          className={selectClass(filters.section, Boolean(filters.instructor))}
-        >
-          <option value="">Select section…</option>
-          {(allItems.sections.length ? allItems.sections : [1, 2, 3]).map((n) => (
-            <option key={n} value={String(n)}>{n}</option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-
-  // buttons row: Skip left, Reset + Regenerate right
-  const Actions = (
-    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-      <button
-        type="button"
-        onClick={onSkip}
-        className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 active:scale-[0.98]"
-      >
-        Skip &amp; show anyway
-      </button>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onReset}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 active:scale-[0.98]"
-        >
-          Reset
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setApplied({ ...filters });
-            onRegenerate();
-          }}
-          className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-blue-700"
-        >
-          Regenerate
-        </button>
-      </div>
-    </div>
-  );
 
   // selection chips
   const selectionChips = useMemo(() => {
     const parts: Array<{ k: string; v: string }> = [];
-    if (applied.faculty) parts.push({ k: "Faculty", v: String(applied.faculty) });
-    if (applied.instructor) parts.push({ k: "Instructor", v: String(applied.instructor) });
-    if (applied.room) parts.push({ k: "Room", v: String(applied.room) });
-    if (applied.year) parts.push({ k: "Year", v: String(applied.year) });
-    if (applied.semester) parts.push({ k: "Semester", v: `${applied.semester}` });
-    if (applied.group) parts.push({ k: "Group", v: String(applied.group) });
-    if (applied.section) parts.push({ k: "Section", v: String(applied.section) });
+    if (filters.faculty) parts.push({ k: "Faculty", v: String(filters.faculty) });
+    if (filters.instructor) parts.push({ k: "Instructor", v: String(filters.instructor) });
+    if (filters.room) parts.push({ k: "Room", v: String(filters.room) });
+    if (filters.year) parts.push({ k: "Year", v: String(filters.year) });
+    if (filters.semester) parts.push({ k: "Semester", v: `${filters.semester}` });
+    if (filters.group) parts.push({ k: "Group", v: String(filters.group) });
+    if (filters.section) parts.push({ k: "Section", v: String(filters.section) });
     return parts;
-  }, [applied]);
+  }, [filters]);
 
   /* ------------------------------ render ----------------------------- */
 
   return (
-    <>
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
       <Head title="Timetable" />
       <style>{printCSS}</style>
 
@@ -598,15 +394,129 @@ export default function TimetablePage() {
         </div>
       </div>
 
-      {/* Filters row – 3 compact colorful groups in one rectangle */}
+      {/* Filters row – Single clean grid */}
       <div className="no-print mx-auto mt-4 max-w-[1400px] px-2">
-        <div className={["rounded-2xl border bg-white p-3 transition", shake ? "animate-[shake_0.45s_ease]" : "", "border-gray-200"].join(" ")}>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            {GroupOne}
-            {GroupTwo}
-            {GroupThree}
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-7">
+            <div>
+              <Label>Faculty</Label>
+              <select
+                value={filters.faculty ?? ""}
+                onChange={(e) => setFilters((s) => ({ ...s, faculty: e.target.value || undefined }))}
+                className={selectClass(filters.faculty, allItems.faculties.length === 0)}
+                disabled={allItems.faculties.length === 0}
+              >
+                <option value="">All Faculties</option>
+                {allItems.faculties.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label>Instructor</Label>
+              <select
+                value={filters.instructor ?? ""}
+                onChange={(e) => setFilters((s) => ({ ...s, instructor: e.target.value || undefined }))}
+                className={selectClass(filters.instructor)}
+              >
+                <option value="">All Instructors</option>
+                {allItems.instructors.map((i) => (
+                  <option key={i} value={i}>{i}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label>Room</Label>
+              <select
+                value={filters.room ?? ""}
+                onChange={(e) => setFilters((s) => ({ ...s, room: e.target.value || undefined }))}
+                className={selectClass(filters.room)}
+              >
+                <option value="">All Rooms</option>
+                {allItems.rooms.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label>Year</Label>
+              <select
+                value={filters.yearRaw ?? ""}
+                onChange={(e) => {
+                  const yr = e.target.value ? Number(e.target.value) : undefined;
+                  setFilters((s) => ({ ...s, yearRaw: yr, year: yr ? `${ordinal(yr)} year` : undefined }));
+                }}
+                className={selectClass(filters.yearRaw != null ? String(filters.yearRaw) : "")}
+              >
+                <option value="">All Years</option>
+                {(() => {
+                  const base = [1, 2, 3, 4];
+                  const extra = allItems.years.filter((y) => y > 4 && !base.includes(y));
+                  return [...base, ...extra].map((y) => (
+                    <option key={y} value={y}>{`${ordinal(y)} year`}</option>
+                  ));
+                })()}
+              </select>
+            </div>
+
+            <div>
+              <Label>Semester</Label>
+              <select
+                value={filters.semesterRaw ?? ""}
+                onChange={(e) => {
+                  const raw = e.target.value ? Number(e.target.value) : undefined;
+                  setFilters((s) => ({ ...s, semesterRaw: raw, semester: raw ? (raw % 2 === 1 ? "1st" : "2nd") : undefined }));
+                }}
+                className={selectClass(filters.semesterRaw != null ? String(filters.semesterRaw) : "")}
+              >
+                <option value="">All Semesters</option>
+                {(allItems.semesters.length ? allItems.semesters : [1, 2]).map((s) => (
+                  <option key={s} value={s}>{s % 2 === 1 ? "1st" : "2nd"}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label>Group</Label>
+              <select
+                value={filters.group ?? ""}
+                onChange={(e) => setFilters((s) => ({ ...s, group: e.target.value || undefined }))}
+                className={selectClass(filters.group)}
+              >
+                <option value="">All Groups</option>
+                {(allItems.groups.length ? allItems.groups : ["1", "2", "3"]).map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label>Section</Label>
+              <select
+                value={filters.section ?? ""}
+                onChange={(e) => setFilters((s) => ({ ...s, section: e.target.value || undefined }))}
+                className={selectClass(filters.section)}
+              >
+                <option value="">All Sections</option>
+                {(allItems.sections.length ? allItems.sections : [1, 2, 3]).map((n) => (
+                  <option key={n} value={String(n)}>{n}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          {Actions}
+
+          <div className="mt-4 flex justify-end border-t border-gray-100 pt-3">
+            <button
+              type="button"
+              onClick={onReset}
+              className="text-sm font-medium text-red-600 hover:text-red-700 hover:underline"
+            >
+              Reset Filters
+            </button>
+          </div>
         </div>
       </div>
 
@@ -658,10 +568,7 @@ export default function TimetablePage() {
                     {DAYS.map((day) => (
                       <td key={`${day}-${slot}`} className="border-r border-gray-200 px-1.5 py-2 align-top">
                         <TimetableCell
-                          courses={(() => {
-                            if (!skip && !hasAnyApplied) return [];
-                            return coursesFor(day, slot);
-                          })()}
+                          courses={coursesFor(day, slot)}
                           onSelect={(c) => setActiveCourse(c)}
                         />
                       </td>
@@ -762,7 +669,7 @@ export default function TimetablePage() {
       {activeCourse && (
         <CourseModal course={activeCourse} onClose={() => setActiveCourse(null)} />
       )}
-    </>
+    </div>
   );
 }
 

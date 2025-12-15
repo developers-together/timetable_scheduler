@@ -34,9 +34,9 @@ class VariableManagerProvider extends ServiceProvider
     private const SECOND_HALF = 'second_half';
 
     // OPTIMIZATION: Domain size control
-    private const ROOMS_PER_VARIABLE = 25;      // Each variable gets 25 rooms
+    private const ROOMS_PER_VARIABLE = 10;      // Each variable gets 25 rooms
     private const ROOM_OVERLAP_PERCENTAGE = 40;  // 40% overlap between consecutive variables
-    private const MIN_ROOMS_REQUIRED = 15;       // Minimum acceptable room count
+    private const MIN_ROOMS_REQUIRED = 10;       // Minimum acceptable room count
 
     public function __construct()
     {
@@ -206,16 +206,33 @@ class VariableManagerProvider extends ServiceProvider
                     $slotType = $this->getSlotTypeForComponent($component->type);
 
                     for ($i = 1; $i <= $count; $i++) {
+                        // Calculate which student group this class serves
+                        // For lectures: groupNO = i (one lecture per group)
+                        // For labs/tutorials: map section to group
+                        //   e.g., if 4 groups and 12 sections, sections 1-3 → group 1, 4-6 → group 2, etc.
+                        if ($component->type === 'Lecture') {
+                            $studentGroup = $i; // Lecture i is for group i
+                        } else {
+                            // Calculate group from section number
+                            // sectionsPerGroup = sectionCount / groupCount
+                            $sectionsPerGroup = (int) ceil($sectionCount / max(1, $groupCount));
+                            $studentGroup = (int) ceil($i / max(1, $sectionsPerGroup));
+                            // Ensure studentGroup doesn't exceed groupCount
+                            $studentGroup = min($studentGroup, $groupCount);
+                        }
+                        
                         $this->variables[] = [
                             'course_id' => $course->id,
                             'course_name' => $course->name ?? 'Unknown',
                             'type' => $component->type,
-                            'groupNO' => $i,
+                            'groupNO' => $studentGroup, // The student group this serves
                             'sectionNO' => ($component->type === 'Lecture') ? 0 : $i,
                             'instructor_id' => $instructor?->id,
                             'instructor_name' => $instructor?->name ?? 'Unassigned',
                             'capacity' => $capacity,
                             'slot_type' => $slotType,
+                            'faculty' => $requiredCourse->faculty,
+                            'year' => $requiredCourse->level,
                         ];
                         $variableCount++;
                     }
@@ -567,13 +584,18 @@ class VariableManagerProvider extends ServiceProvider
         $edgeCount = 0;
         $instructorEdges = 0;
         $roomOverlapEdges = 0;
+        $groupOverlapEdges = 0;
         $skippedPairs = 0;
 
         // Track edge reasons for analysis
         $edgeReasons = [
             'instructor_only' => 0,
             'room_overlap_only' => 0,
-            'both' => 0,
+            'group_overlap_only' => 0,
+            'instructor_and_room' => 0,
+            'instructor_and_group' => 0,
+            'room_and_group' => 0,
+            'all_three' => 0,
         ];
 
         for ($i = 0; $i < $count; $i++) {
@@ -597,8 +619,23 @@ class VariableManagerProvider extends ServiceProvider
                     $variableRoomSets[$j]
                 );
 
+                // Check student group constraint
+                $shareGroup = false;
+                if (($varI['faculty'] ?? null) === ($varJ['faculty'] ?? null) &&
+                    ($varI['year'] ?? null) === ($varJ['year'] ?? null)) {
+
+                    $gI = $varI['groupNO'] ?? 0;
+                    $gJ = $varJ['groupNO'] ?? 0;
+
+                    // If either group is 0 (meaning no specific group, or all groups),
+                    // or if they share the same group number, they conflict.
+                    if ($gI === 0 || $gJ === 0 || $gI === $gJ) {
+                        $shareGroup = true;
+                    }
+                }
+
                 // Only create edge if there's a potential conflict
-                $needsEdge = $shareInstructor || $shareRooms;
+                $needsEdge = $shareInstructor || $shareRooms || $shareGroup;
 
                 if ($needsEdge) {
                     $this->neighbors[$i][] = $j;
@@ -606,14 +643,28 @@ class VariableManagerProvider extends ServiceProvider
                     $edgeCount++;
 
                     // Track edge type for analysis
-                    if ($shareInstructor && $shareRooms) {
-                        $edgeReasons['both']++;
-                    } elseif ($shareInstructor) {
-                        $edgeReasons['instructor_only']++;
-                        $instructorEdges++;
-                    } else {
-                        $edgeReasons['room_overlap_only']++;
-                        $roomOverlapEdges++;
+                    $reasonMask = 0;
+                    if ($shareInstructor) {
+                        $reasonMask |= 1;
+                        $instructorEdges++; // Increment total instructor-related edges
+                    }
+                    if ($shareRooms) {
+                        $reasonMask |= 2;
+                        $roomOverlapEdges++; // Increment total room-related edges
+                    }
+                    if ($shareGroup) {
+                        $reasonMask |= 4;
+                        $groupOverlapEdges++; // Increment total group-related edges
+                    }
+
+                    switch ($reasonMask) {
+                        case 1: $edgeReasons['instructor_only']++; break;
+                        case 2: $edgeReasons['room_overlap_only']++; break;
+                        case 4: $edgeReasons['group_overlap_only']++; break;
+                        case 3: $edgeReasons['instructor_and_room']++; break; // 1 | 2
+                        case 5: $edgeReasons['instructor_and_group']++; break; // 1 | 4
+                        case 6: $edgeReasons['room_and_group']++; break;     // 2 | 4
+                        case 7: $edgeReasons['all_three']++; break;          // 1 | 2 | 4
                     }
                 } else {
                     $skippedPairs++;
@@ -627,7 +678,13 @@ class VariableManagerProvider extends ServiceProvider
         Log::info("Total edges: {$edgeCount}");
         Log::info("  - Instructor conflicts: {$instructorEdges}");
         Log::info("  - Room overlap conflicts: {$roomOverlapEdges}");
-        Log::info("  - Both constraints: {$edgeReasons['both']}");
+        Log::info("  - Instructor only: {$edgeReasons['instructor_only']}");
+        Log::info("  - Room overlap only: {$edgeReasons['room_overlap_only']}");
+        Log::info("  - Group overlap only: {$edgeReasons['group_overlap_only']}");
+        Log::info("  - Instructor & Room: {$edgeReasons['instructor_and_room']}");
+        Log::info("  - Instructor & Group: {$edgeReasons['instructor_and_group']}");
+        Log::info("  - Room & Group: {$edgeReasons['room_and_group']}");
+        Log::info("  - All Three: {$edgeReasons['all_three']}");
         Log::info("Pairs skipped (no conflict): {$skippedPairs}");
 
         $totalPairs = ($count * ($count - 1)) / 2;

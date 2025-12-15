@@ -11,20 +11,19 @@ export interface TimetableData {
   };
   assignments: number;
   data: {
-    [courseId: string]: {
-      [type: string]: {
-        slot: string | string[];
-        room_id: string;
-        instructor_id: string | null;
-        faculty?: string;
-        year?: number;
-        semester?: number;
-        group?: string;
-        section?: string;
-        course_name?: string;
-      };
-    };
-  };
+    course_code: string;
+    type: string;
+    slot: string;
+    room_id: string;
+    instructor_id: string | null;
+    faculty?: string;
+    year?: number;
+    semester?: number;
+    group?: string;
+    section?: string;
+    course_name?: string;
+    credit_hours?: number;
+  }[];
 }
 
 export enum ComputationStatus {
@@ -122,3 +121,4 @@ export function useTimetable(initialData?: TimetableData | null) {
     displayTime,
   };
 }
+

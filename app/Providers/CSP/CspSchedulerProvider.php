@@ -18,6 +18,12 @@ class CspSchedulerProvider extends ServiceProvider
 
     public function __construct()
     {
+        // Components will be initialized in generateSchedule to respect memory limits
+
+        ini_set('memory_limit', '4069M');
+        set_time_limit(300);
+
+        // Initialize components here to ensure memory limit applies
         $this->varManager = new VariableManager();
         $this->solver = new ConstraintSolver();
         $this->evaluator = new Evaluator();
@@ -26,8 +32,8 @@ class CspSchedulerProvider extends ServiceProvider
 
     public function generateSchedule(): array
     {
-        ini_set('memory_limit', '2048M');
-        set_time_limit(300);
+ 
+
         try {
             Log::info("========================================");
             Log::info("=== Starting Schedule Generation ===");
