@@ -7,6 +7,7 @@ use App\Providers\CSP\VariableManagerProvider as VariableManager;
 use App\Providers\CSP\ConstraintSolverProvider as ConstraintSolver;
 use App\Providers\CSP\EvaluatorProvider as Evaluator;
 use App\Providers\CSP\DatabaseSaverProvider as DatabaseSaver;
+use App\Providers\CSP\ParallelSolverProvider as ParallelSolver;
 use Illuminate\Support\Facades\Log;
 
 class CspSchedulerProvider extends ServiceProvider
@@ -15,8 +16,9 @@ class CspSchedulerProvider extends ServiceProvider
     private ConstraintSolver $solver;
     private Evaluator $evaluator;
     private DatabaseSaver $dbSaver;
+    private bool $useParallel = true; // Set to true to use parallel solving
 
-    public function __construct()
+    public function __construct(bool $parallel = true)
     {
         // Components will be initialized in generateSchedule to respect memory limits
 
@@ -28,6 +30,7 @@ class CspSchedulerProvider extends ServiceProvider
         $this->solver = new ConstraintSolver();
         $this->evaluator = new Evaluator();
         $this->dbSaver = new DatabaseSaver();
+        $this->useParallel = $parallel;
     }
 
     public function generateSchedule(): array
@@ -50,7 +53,14 @@ class CspSchedulerProvider extends ServiceProvider
             $this->dbSaver->resetDB();
             Log::info("Database reset complete");
 
-            $assignment = $this->solver->solve($domains, $neighbors, $variables);
+            // Choose solving method
+            if ($this->useParallel) {
+                Log::info("Using PARALLEL solver with multiple processes");
+                $parallelSolver = new ParallelSolver(4); // 4 workers
+                $assignment = $parallelSolver->parallelSolve($domains, $neighbors, $variables);
+            } else {
+                $assignment = $this->solver->solve($domains, $neighbors, $variables);
+            }
 
             if (!$assignment) {
                 throw new \Exception("No valid timetable found! The problem may be over-constrained.");

@@ -24,6 +24,7 @@ return new class extends Migration
                 $table->id();
                 $table->foreignId('course_id')->constrained('courses')->onDelete('cascade');
                 $table->enum('type', ['Lecture', 'Tutorial', 'Lab']);
+                $table->unique(['course_id', 'type']); // Prevent duplicate component types per course
             });
         }
 

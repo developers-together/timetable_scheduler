@@ -82,7 +82,7 @@ importMethod.form = importMethodForm
 
 /**
 * @see \App\Http\Controllers\DBLoaderController::importInput
-* @see app/Http/Controllers/DBLoaderController.php:32
+* @see app/Http/Controllers/DBLoaderController.php:47
 * @route '/dbinput'
 */
 export const importInput = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -97,7 +97,7 @@ importInput.definition = {
 
 /**
 * @see \App\Http\Controllers\DBLoaderController::importInput
-* @see app/Http/Controllers/DBLoaderController.php:32
+* @see app/Http/Controllers/DBLoaderController.php:47
 * @route '/dbinput'
 */
 importInput.url = (options?: RouteQueryOptions) => {
@@ -106,7 +106,7 @@ importInput.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\DBLoaderController::importInput
-* @see app/Http/Controllers/DBLoaderController.php:32
+* @see app/Http/Controllers/DBLoaderController.php:47
 * @route '/dbinput'
 */
 importInput.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -116,7 +116,7 @@ importInput.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\DBLoaderController::importInput
-* @see app/Http/Controllers/DBLoaderController.php:32
+* @see app/Http/Controllers/DBLoaderController.php:47
 * @route '/dbinput'
 */
 importInput.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -126,7 +126,7 @@ importInput.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\DBLoaderController::importInput
-* @see app/Http/Controllers/DBLoaderController.php:32
+* @see app/Http/Controllers/DBLoaderController.php:47
 * @route '/dbinput'
 */
 const importInputForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -136,7 +136,7 @@ const importInputForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'
 
 /**
 * @see \App\Http\Controllers\DBLoaderController::importInput
-* @see app/Http/Controllers/DBLoaderController.php:32
+* @see app/Http/Controllers/DBLoaderController.php:47
 * @route '/dbinput'
 */
 importInputForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -146,7 +146,7 @@ importInputForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> 
 
 /**
 * @see \App\Http\Controllers\DBLoaderController::importInput
-* @see app/Http/Controllers/DBLoaderController.php:32
+* @see app/Http/Controllers/DBLoaderController.php:47
 * @route '/dbinput'
 */
 importInputForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
