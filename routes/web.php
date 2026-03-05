@@ -27,23 +27,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 require __DIR__ . '/settings.php';
 
 
-Route::get('/cspgenerate', action: [TimetableController::class, 'index']);
-
-// Route::get('/generate-timetablefast', [TimetableFastController::class, 'generateTimetable']);
-
-Route::get('/dbload', [DBLoaderController::class, 'import']);
-
-Route::get('/dbinput', [DBLoaderController::class, 'importInput']);
-// API (as-is)
-// Route::get('/generate-timetable', [TimetableController::class, 'generateTimetable']);
-// Route::get('/getAssignment', [TimetableController::class, 'getAssignment']);
-
-// Flow: 1 → 2 → 3
-Route::get('/generate', [GenerateInputController::class, 'index']);  // page 1
 
 
-Route::get('/waiting', fn() => Inertia::render('waiting'));    // page 2
-Route::get('/timetablejson', [TimetableController::class, 'show1']); // page 3
-Route::get('/timetable', [TimetableController::class, 'show']); // page 3
 
-Route::post('/input', [GenerateInputController::class, 'store']);// page 3
